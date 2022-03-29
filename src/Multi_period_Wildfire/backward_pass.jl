@@ -50,14 +50,17 @@ function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter
     m = length(function_info.G)
 
     xⱼ = function_info.x_his[iter]
-    # add constraints
-    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df' * (model_info.x - xⱼ) )
-    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k]' * (model_info.x - xⱼ) )
+    # add constraints     
+    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df[:zb]' * (model_info.xb - xⱼ[:zb] ) 
+                                                                    + function_info.df[:zg]' * (model_info.xg - xⱼ[:zg] )
+                                                                    + function_info.df[:zl]' * (model_info.xl - xⱼ[:zl] )
+                                                                    )
+
+    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k][:zb]' * (model_info.xb - xⱼ[:zb])
+                                                                                 + function_info.dG[k][:zg]' * (model_info.xg - xⱼ[:zg])
+                                                                                 + function_info.dG[k][:zl]' * (model_info.xl - xⱼ[:zl])  
+                                                                                 ) 
 end
-
-
-
-
 
 
 #############################################################################################
@@ -168,7 +171,7 @@ function backward_stage2_optimize!(indexSets::IndexSets,
                                                     :zl => round.(JuMP.value.(zl))
                                                     )
     F  = JuMP.objective_value(Q)
-    ∇F = Dict{:Symbol, Vector}(:zg => ẑ[:zb] .- state_variable[:zb],
+    ∇F = Dict{:Symbol, Vector}(     :zg => ẑ[:zb] .- state_variable[:zb],
                                     :zb => ẑ[:zg] .- state_variable[:zg],
                                     :zl => ẑ[:zl] .- state_variable[:zl]
                                     )
@@ -178,24 +181,10 @@ function backward_stage2_optimize!(indexSets::IndexSets,
 end
 
 
-struct LevelSetMethodParam
-    μ             ::Float64   ## param for adjust α
-    λ             ::Float64   ## param for adjust level
-    threshold     ::Float64   ## threshold for Δ
-    nxt_bound     ::Float64   ## lower bound for solving next iteration point π
-    max_iter      ::Int64     
-    Output        ::Int64     ## Gurobi Output parameter
-    Output_Gap    ::Bool      ## if True will print Δ info
-    Adj           ::Bool      ## whether adjust oracle lower bound
-end
-
-
-# levelSetMethodParam = LevelSetMethodParam(μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj)
 
 
 
-
-function LevelSetMethod_optimization!(indexSets::IndexSets, 
+function LevelSetMethod_optimization!(  indexSets::IndexSets, 
                                         paramDemand::ParamDemand, 
                                         paramOPF::ParamOPF, 
                                         ẑ::Dict{Symbol, Vector{Int64}},
@@ -209,6 +198,8 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
     ######################################################################################################################
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
+    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, IndexSets.Ω)
+    (_D, _G, in_L, out_L) = (indexSets._D, indexSets._G, indexSets.in_L, indexSets.out_L) 
 
     x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
                                                 :zg => [interior_value for i in 1:length(G)], 
@@ -274,10 +265,10 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
     ##############################################   level set method   ##################################################
     ######################################################################################################################
     
-    x₀ = Dict{Symbol, Vector}(:zb => [1. for i in 1:length(B)] , 
-                                        :zg => [1. for i in 1:length(G)], 
-                                        :zl => [1. for i in 1:length(L)]
-                                        )
+    x₀ = Dict{Symbol, Vector}(      :zb => [1. for i in 1:length(B)], 
+                                    :zg => [1. for i in 1:length(G)], 
+                                    :zl => [1. for i in 1:length(L)]
+                                    )
     iter = 1
     α = 1/2
 
@@ -287,7 +278,7 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
                                     function_value_info[3], 
                                     Dict(1 => function_value_info[1]), 
                                     function_value_info[2], 
-                                    function_value_info[4], 
+                                    function_value_info[4], ## Dict{Int64, Dict{Symbol, Vector}} and index is the components of dG (i == 1)
                                     function_value_info[3]
                                     )
 
@@ -302,7 +293,9 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
 
 
     @variable(model_oracle, z)
-    @variable(model_oracle, x[i = 1:n])
+    @variable(model_oracle, xb_oracle[B])
+    @variable(model_oracle, xg_oracle[G])
+    @variable(model_oracle, xl_oracle[L])
     @variable(model_oracle, y <= 0)
 
     # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
@@ -312,7 +305,7 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
     @constraint(model_oracle, oracle_bound, z >= - z_rhs)
 
     @objective(model_oracle, Min, z)
-    oracle_info = ModelInfo(model_oracle, x, y, z)
+    oracle_info = ModelInfo(model_oracle, xb_oracle, xg_oracle, xl_oracle, y, z)
 
 
 
@@ -330,6 +323,7 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
             end 
             set_normalized_rhs(oracle_bound, - z_rhs)  
         end
+
         add_constraint(function_info, oracle_info, iter)
         optimize!(model_oracle)
 
@@ -386,7 +380,12 @@ function LevelSetMethod_optimization!(indexSets::IndexSets,
                                         function_info.df[:zg]' * (xg - function_info.x_his[iter][:zg]) +
                                         function_info.df[:zl]' * (xl - function_info.x_his[iter][:zl]) 
                                         )
-        @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + function_info.dG[k]' * (x1 - function_info.x_his[iter]) )
+        @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + 
+                                                                      function_info.dG[k][:zb]' * (xb - function_info.x_his[iter][:zb])
+                                                                    + function_info.dG[k][:zg]' * (xg - function_info.x_his[iter][:zg]) 
+                                                                    + function_info.dG[k][:zl]' * (xl - function_info.x_his[iter][:zl])
+                                                                    )
+
         @objective(model_nxt, Min, (xb - function_info.x_his[iter][:zb])' * (xb - function_info.x_his[iter][:zb]) +
                                     (xg - function_info.x_his[iter][:zg])' * (xg - function_info.x_his[iter][:zg])+
                                     (xl - function_info.x_his[iter][:zl])' * (xl - function_info.x_his[iter][:zl])

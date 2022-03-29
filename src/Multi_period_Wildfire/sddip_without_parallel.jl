@@ -59,8 +59,9 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         Stage2_collection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
         
-        Random.seed!(i*3)
-        Scenarios = SampleScenarios(scenario_sequence, T = T, M = M);
+        ## it is not necessary to sample r.v.
+        # Random.seed!(i*3)
+        # Scenarios = SampleScenarios(scenario_sequence, T = T, M = M);
         
         ## Forward Step
         for k in 1:M
