@@ -103,16 +103,16 @@ end
 2. return the decision value -- y and its state value
 
 """
- z
 function forward_stage2_optimize!(indexSets::IndexSets, 
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     ẑ::Dict{Symbol, Vector{Int64}},
-                                    τ::Int64                          ## realization of the random time
+                                    randomVariables::RandomVariables                          ## realization of the random time
                                     )
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, IndexSets.Ω)
     (_D, _G, in_L, out_L) = (indexSets._D, indexSets._G, indexSets.in_L, indexSets.out_L) 
+
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => 0, 
@@ -136,21 +136,21 @@ function forward_stage2_optimize!(indexSets::IndexSets,
     for l in L
       i = l[1]
       j = l[2]
-      @constraint(Q, [t in τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmax * (1 - yl[l] ) ) )
-      @constraint(Q, [t in τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmin * (1 - yl[l] ) ) )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmax * (1 - yl[l] ) ) )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmin * (1 - yl[l] ) ) )
     end
 
     ## constraint 3d
-    @constraint(Q, [l in L, t in τ:T], - ParamOPF.W[l] * yl[l] <= P[l, t] <= ParamOPF.W[l] * yl[l] )
+    @constraint(Q, [l in L, t in randomVariables.τ:T], - ParamOPF.W[l] * yl[l] <= P[l, t] <= ParamOPF.W[l] * yl[l] )
 
     ## constraint 3e
-    @constraint(Q, [i in B, t in τ:T], sum(s[g, t] for g in _G[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[t, d] for d in _D[i]) )
+    @constraint(Q, [i in B, t in randomVariables.τ:T], sum(s[g, t] for g in _G[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[t, d] for d in _D[i]) )
 
     ## constraint 3f
-    @constraint(Q, [g in G, t in τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
+    @constraint(Q, [g in G, t in randomVariables.τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
 
     ## constraint g h i j
-    @constraint(Q, [i in B, t in τ:T, d in _D[i]], yb[i] >= x[t, d])
+    @constraint(Q, [i in B, t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
     @constraint(Q, [i in B, g in _G[i]], yb[i] >= yg[g])
     @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)])
     @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)])
@@ -164,27 +164,27 @@ function forward_stage2_optimize!(indexSets::IndexSets,
     @constraint(Q, [g in G], yg[g] <= 1- νg[g] )
     @constraint(Q, [l in L], yl[l] <= 1- νl[l] )
 
-    @constraint(Q, [i in B], νb[i] >= vb[i] )
-    @constraint(Q, [g in G], νg[g] >= vg[g] )
-    @constraint(Q, [l in L], νl[l] >= vl[l] )
+    @constraint(Q, [i in B], νb[i] >= randomVariables.vb[i] )
+    @constraint(Q, [g in G], νg[g] >= randomVariables.vg[g] )
+    @constraint(Q, [l in L], νl[l] >= randomVariables.vl[l] )
 
     ## constraint n
-    @constraint(Q, [i in B, j in Ibb[i]], νb[j] >= ub[i] * ẑ[:zb][i] )
-    @constraint(Q, [i in B, j in Ibg[i]], νg[j] >= ub[i] * ẑ[:zb][i] )
-    @constraint(Q, [i in B, j in Ibl[i]], νl[j] >= ub[i] * ẑ[:zb][i] )
+    @constraint(Q, [i in B, j in randomVariables.Ibb[i]], νb[j] >= randomVariables.ub[i] * ẑ[:zb][i] )
+    @constraint(Q, [i in B, j in randomVariables.Ibg[i]], νg[j] >= randomVariables.ub[i] * ẑ[:zb][i] )
+    @constraint(Q, [i in B, j in randomVariables.Ibl[i]], νl[j] >= randomVariables.ub[i] * ẑ[:zb][i] )
 
-    @constraint(Q, [i in G, j in Igb[i]], νb[j] >= ug[i] * ẑ[:zg][i] )
-    @constraint(Q, [i in G, j in Igg[i]], νg[j] >= ug[i] * ẑ[:zg][i] )
-    @constraint(Q, [i in G, j in Igl[i]], νl[j] >= ug[i] * ẑ[:zg][i] )
+    @constraint(Q, [i in G, j in randomVariables.Igb[i]], νb[j] >= randomVariables.ug[i] * ẑ[:zg][i] )
+    @constraint(Q, [i in G, j in randomVariables.Igg[i]], νg[j] >= randomVariables.ug[i] * ẑ[:zg][i] )
+    @constraint(Q, [i in G, j in randomVariables.Igl[i]], νl[j] >= randomVariables.ug[i] * ẑ[:zg][i] )
 
-    @constraint(Q, [i in L, j in Ilb[i]], νb[j] >= ul[i] * ẑ[:zl][i] )
-    @constraint(Q, [i in L, j in Ilg[i]], νg[j] >= ul[i] * ẑ[:zl][i] )
-    @constraint(Q, [i in L, j in Ill[i]], νl[j] >= ul[i] * ẑ[:zl][i] )
+    @constraint(Q, [i in L, j in randomVariables.Ilb[i]], νb[j] >= randomVariables.ul[i] * ẑ[:zl][i] )
+    @constraint(Q, [i in L, j in randomVariables.Ilg[i]], νg[j] >= randomVariables.ul[i] * ẑ[:zl][i] )
+    @constraint(Q, [i in L, j in randomVariables.Ill[i]], νl[j] >= randomVariables.ul[i] * ẑ[:zl][i] )
 
 
     ## objective function
     @objecive(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t, d] * (1 - x[t, d]) for d in D ) for t in τ:T) +
+            sum( sum(paramDemand.w[d] * paramDemand.demand[t, d] * (1 - x[t, d]) for d in D ) for t in randomVariables.τ:T) +
             sum(ParamDemand.cb[i] * νb[i] for i in B) + 
             sum(ParamDemand.cg[g] * νg[g] for g in G) + 
             sum(ParamDemand.cl[l] * νl[l] for l in L)

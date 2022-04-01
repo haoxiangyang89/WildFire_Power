@@ -73,11 +73,35 @@ end
 
 """
 
+struct RandomVariables  
+    τ   ::Int64
+
+    ub   ::Dict{Symbol, Bool}                                                 ## whether there exists a fault
+    ug   ::Dict{Int64, Bool}   
+    ul   ::Dict{Tuple{Symbol, Symbol}, Bool} 
+
+    vb   ::Dict{Symbol, Bool}                                                 ## whether there exists a fire caused by natural condition
+    vg   ::Dict{Symbol, Bool}   
+    vl   ::Dict{Tuple{Symbol, Symbol}, Bool} 
+
+    Ibb   ::Dict{Symbol, Symbol}                                              ## the set of buses which is affected by a bus
+    Ibg   ::Dict{Symbol, Symbol}                                              ## the set of generators which is affected by a bus
+    Ibl   ::Dict{Symbol, Tuple{Symbol, Symbol}}                               ## the set of lines which is affected by a bus
+
+    Igb   ::Dict{Symbol, Symbol}                                              ## the set of buses which is affected by a generators
+    Igg   ::Dict{Symbol, Symbol}                                              ## the set of generators which is affected by a generators
+    Igl   ::Dict{Symbol, Tuple{Symbol, Symbol}}                               ## the set of lines which is affected by a generators
+
+    Ilb   ::Dict{Tuple{Symbol, Symbol}, Symbol}                               ## the set of buses which is affected by a line
+    Ilg   ::Dict{Tuple{Symbol, Symbol}, Symbol}                               ## the set of generators which is affected by a line
+    Ill   ::Dict{Tuple{Symbol, Symbol}, Tuple{Symbol, Symbol}}                ## the set of lines which is affected by a line
+end
+
 function backward_stage2_optimize!(indexSets::IndexSets, 
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     ẑ::Dict{Symbol, Vector{Int64}},
-                                    τ::Int64,                          ## realization of the random time
+                                    randomVariables::RandomVariables,                          ## realization of the random time
                                     π::Dict{Symbol, Vector{Float64}}
                                     )
 
@@ -110,21 +134,21 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     for l in L
       i = l[1]
       j = l[2]
-      @constraint(Q, [t in τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmax * (1 - yl[l] ) ) )
-      @constraint(Q, [t in τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmin * (1 - yl[l] ) ) )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmax * (1 - yl[l] ) ) )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmin * (1 - yl[l] ) ) )
     end
 
     ## constraint 3d
-    @constraint(Q, [l in L, t in τ:T], - ParamOPF.W[l] * yl[l] <= P[l, t] <= ParamOPF.W[l] * yl[l] )
+    @constraint(Q, [l in L, t in randomVariables.τ:T], - ParamOPF.W[l] * yl[l] <= P[l, t] <= ParamOPF.W[l] * yl[l] )
 
     ## constraint 3e
-    @constraint(Q, [i in B, t in τ:T], sum(s[g, t] for g in _G[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[t, d] for d in _D[i]) )
+    @constraint(Q, [i in B, t in randomVariables.τ:T], sum(s[g, t] for g in _G[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[t, d] for d in _D[i]) )
 
     ## constraint 3f
-    @constraint(Q, [g in G, t in τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
+    @constraint(Q, [g in G, t in randomVariables.τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
 
     ## constraint g h i j
-    @constraint(Q, [i in B, t in τ:T, d in _D[i]], yb[i] >= x[t, d])
+    @constraint(Q, [i in B, t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
     @constraint(Q, [i in B, g in _G[i]], yb[i] >= yg[g])
     @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)])
     @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)])
@@ -143,22 +167,22 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     @constraint(Q, [l in L], νl[l] >= vl[l] )
 
     ## constraint n
-    @constraint(Q, [i in B, j in Ibb[i]], νb[j] >= ub[i] * zb[i] )
-    @constraint(Q, [i in B, j in Ibg[i]], νg[j] >= ub[i] * zb[i] )
-    @constraint(Q, [i in B, j in Ibl[i]], νl[j] >= ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in randomVariables.Ibb[i]], νb[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in randomVariables.Ibg[i]], νg[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in randomVariables.Ibl[i]], νl[j] >= randomVariables.ub[i] * zb[i] )
 
-    @constraint(Q, [i in G, j in Igb[i]], νb[j] >= ug[i] * zg[i] )
-    @constraint(Q, [i in G, j in Igg[i]], νg[j] >= ug[i] * zg[i] )
-    @constraint(Q, [i in G, j in Igl[i]], νl[j] >= ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in randomVariables.Igb[i]], νb[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in randomVariables.Igg[i]], νg[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in randomVariables.Igl[i]], νl[j] >= randomVariables.ug[i] * zg[i] )
 
-    @constraint(Q, [i in L, j in Ilb[i]], νb[j] >= ul[i] * zl[i] )
-    @constraint(Q, [i in L, j in Ilg[i]], νg[j] >= ul[i] * zl[i] )
-    @constraint(Q, [i in L, j in Ill[i]], νl[j] >= ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in randomVariables.Ilb[i]], νb[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in randomVariables.Ilg[i]], νg[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in randomVariables.Ill[i]], νl[j] >= randomVariables.ul[i] * zl[i] )
 
 
     ## objective function
     @objecive(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t, d] * (1 - x[t, d]) for d in D ) for t in τ:T) +
+            sum( sum(paramDemand.w[d] * paramDemand.demand[t, d] * (1 - x[t, d]) for d in D ) for t in randomVariables.τ:T) +
             sum(ParamDemand.cb[i] * νb[i] for i in B) + 
             sum(ParamDemand.cg[g] * νg[g] for g in G) + 
             sum(ParamDemand.cl[l] * νl[l] for l in L) +
@@ -188,7 +212,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                         paramDemand::ParamDemand, 
                                         paramOPF::ParamOPF, 
                                         ẑ::Dict{Symbol, Vector{Int64}},
-                                        τ::Int64;                          ## realization of the random time
+                                        randomVariables::RandomVariables;                          ## realization of the random time
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                         ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true
                                         )
@@ -213,7 +237,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                         paramDemand, 
                                         paramOPF, 
                                         ẑ,
-                                        τ                       ## realization of the random time
+                                        randomVariables                       ## realization of the random time
                                         )
     f_star_value = f_star[2]
 
@@ -223,7 +247,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                             Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
-                            paramOPF::ParamOPF = paramOPF, τ::Int64 = τ, 
+                            paramOPF::ParamOPF = paramOPF, randomVariables::RandomVariables = randomVariables, 
                             ẑ::Dict{Symbol, Vector{Int64}} = ẑ
                             )
 
@@ -231,7 +255,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 paramDemand, 
                                                 paramOPF, 
                                                 ẑ,
-                                                τ,                          ## realization of the random time
+                                                randomVariables,                          ## realization of the random time
                                                 π
                                                 )
 

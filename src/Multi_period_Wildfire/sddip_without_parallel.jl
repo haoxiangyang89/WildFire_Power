@@ -47,9 +47,9 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
     named_tuple = (; zip(col_names, type[] for type in col_types )...)
     sddipResult = DataFrame(named_tuple) # 0×7 DataFrame
     gapList = []
-    gurobiResult = gurobiOptimize!(Ω, prob, StageCoefficient,
-                                    binaryInfo = binaryInfo)
-    # OPT = round!(gurobiResult[1])[3]
+    # gurobiResult = gurobiOptimize!(Ω, prob, StageCoefficient,
+    #                                 binaryInfo = binaryInfo)
+    # # OPT = round!(gurobiResult[1])[3]
     OPT = gurobiResult[1]
     println("---------------- print out iteration information -------------------")
     while true
@@ -77,18 +77,18 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
             first_stage_decision = Stage1_collection[k][1]
             c = 0.0
             for ω in 1:indexSets.Ω
-                τ = Ω_rv[ω].τ
+                randomVariables = Ω_rv[ω]
 
-                ẑ = Dict(   :zg => first_stage_decision[:zg][:, τ - 1], 
-                            :zb => first_stage_decision[:zb][:, τ - 1], 
-                            :zl => first_stage_decision[:zl][:, τ - 1]
+                ẑ = Dict(   :zg => first_stage_decision[:zg][:, randomVariables.τ - 1], 
+                            :zb => first_stage_decision[:zb][:, randomVariables.τ - 1], 
+                            :zl => first_stage_decision[:zl][:, randomVariables.τ - 1]
                             )
 
                 Stage2_collection[ω, k] = forward_stage2_optimize!(indexSets, 
                                                                 paramDemand,
                                                                 paramOPF,
                                                                 ẑ,
-                                                                τ                        ## realization of the random time
+                                                                randomVariables                        ## realization of the random time
                                                                 )[2]
                 c = c + prob[ω] * Stage2_collection[ω, k][2]
             end
