@@ -16,7 +16,7 @@ max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
 
 
 function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}}, 
-                            prob::Dict{Int64,Vector{Float64}}, 
+                            prob::Dict{Int64,Float64}, 
                             indexSets::IndexSets; 
                             scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, 
                             ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
@@ -59,17 +59,14 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         Stage2_collection = Dict();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
         
-        ## it is not necessary to sample r.v.
-        # Random.seed!(i*3)
-        # Scenarios = SampleScenarios(scenario_sequence, T = T, M = M);
-        
         ## Forward Step
         for k in 1:M
             ## stage 1
             Stage1_collection[k] = forward_stage1_optimize!(indexSets, 
                                                             paramDemand, 
                                                             paramOPF, 
-                                                            Ω_rv，
+                                                            Ω_rv,
+                                                            prob,
                                                             cut_collection;  ## the index is ω
                                                             θ_bound = 0.0)
             
@@ -130,7 +127,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         _LB = forward_stage1_optimize!(indexSets, 
                                         paramDemand, 
                                         paramOPF, 
-                                        Ω_rv，
+                                        Ω_rv,
+                                        prob,
                                         cut_collection;  ## the index is ω
                                         θ_bound = 0.0
                                         )

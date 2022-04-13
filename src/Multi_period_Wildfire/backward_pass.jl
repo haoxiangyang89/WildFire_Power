@@ -73,30 +73,6 @@ end
 
 """
 
-struct RandomVariables  
-    τ   ::Int64
-
-    ub   ::Dict{Symbol, Bool}                                                 ## whether there exists a fault
-    ug   ::Dict{Int64, Bool}   
-    ul   ::Dict{Tuple{Symbol, Symbol}, Bool} 
-
-    vb   ::Dict{Symbol, Bool}                                                 ## whether there exists a fire caused by natural condition
-    vg   ::Dict{Symbol, Bool}   
-    vl   ::Dict{Tuple{Symbol, Symbol}, Bool} 
-
-    Ibb   ::Dict{Symbol, Symbol}                                              ## the set of buses which is affected by a bus
-    Ibg   ::Dict{Symbol, Symbol}                                              ## the set of generators which is affected by a bus
-    Ibl   ::Dict{Symbol, Tuple{Symbol, Symbol}}                               ## the set of lines which is affected by a bus
-
-    Igb   ::Dict{Symbol, Symbol}                                              ## the set of buses which is affected by a generators
-    Igg   ::Dict{Symbol, Symbol}                                              ## the set of generators which is affected by a generators
-    Igl   ::Dict{Symbol, Tuple{Symbol, Symbol}}                               ## the set of lines which is affected by a generators
-
-    Ilb   ::Dict{Tuple{Symbol, Symbol}, Symbol}                               ## the set of buses which is affected by a line
-    Ilg   ::Dict{Tuple{Symbol, Symbol}, Symbol}                               ## the set of generators which is affected by a line
-    Ill   ::Dict{Tuple{Symbol, Symbol}, Tuple{Symbol, Symbol}}                ## the set of lines which is affected by a line
-end
-
 function backward_stage2_optimize!(indexSets::IndexSets, 
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
@@ -148,10 +124,20 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     @constraint(Q, [g in G, t in randomVariables.τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
 
     ## constraint g h i j
-    @constraint(Q, [i in B, t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
-    @constraint(Q, [i in B, g in _G[i]], yb[i] >= yg[g])
-    @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)])
-    @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)])
+    for i in B
+        if _D[i][1] != 0
+            @constraint(Q, [t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
+        end
+        if _G[i][1] != 0
+            @constraint(Q, [g in _G[i]], yb[i] >= yg[g])
+        end
+        if out_L[i][1] != 0
+            @constraint(Q, [j in out_L[i]], yb[i] >= yl[(i, j)])
+        end
+        if in_L[i][1] != 0
+            @constraint(Q, [j in in_L[i]], yb[i] >= yl[(j, i)])
+        end
+    end
 
     ## constraint k l m 
     @constraint(Q, [i in B], yb[i] <= zb[i] )

@@ -2,97 +2,35 @@
 ################################### Indices & Index Sets ####################################
 #############################################################################################
 struct IndexSets
-    D       :: Vector{Symbol}                   ## set of load demand
-    G       :: Vector{Symbol}                   ## set of generators
-    L       :: Vector{Tuple{Symbol, Symbol}}    ## set of transmission lines
-    B       :: Vector{Symbol}                   ## set of buses
+    D       :: Vector{Int64}                    ## set of load demand
+    G       :: Vector{Int64}                    ## set of generators
+    L       :: Vector{Tuple{Int64, Int64}}      ## set of transmission lines
+    B       :: Vector{Int64}                    ## set of buses
     T       :: Int64                            ## set of time periods  1:T
     Ω       :: Vector{Int64}                    ## r.v. index set
-    _D      :: Dict{Symbol,Vector{Symbol}}
-    _G      :: Dict{Symbol,Vector{Symbol}}
-    out_L   :: Dict{Symbol,Vector{Symbol}}
-    in_L    :: Dict{Symbol,Vector{Symbol}}
+    _D      :: Dict{Int64,Vector{Int64}}        ## components connected to the key
+    _G      :: Dict{Int64,Vector{Int64}}
+    out_L   :: Dict{Int64,Vector{Int64}}
+    in_L    :: Dict{Int64,Vector{Int64}}
 end
-
-## function to obtain _D, _G, out_L, in_L
-
-function prepareIndexSets(D, G, L, B ,T, Ω)
-    _D =    Dict{Symbol,Vector{Symbol}}()
-    _G =    Dict{Symbol,Vector{Symbol}}()
-    out_L = Dict{Symbol,Vector{Symbol}}()
-    in_L =  Dict{Symbol,Vector{Symbol}}()
-    for l in L 
-        l1 = l[1]
-        l2 = l[2]
-
-        if l2 ∉ keys(in_L)
-            in_L[l2] = Vector{Symbol}()
-        end
-
-        if l1 ∉ keys(out_L)
-            out_L[l1] = Vector{Symbol}()
-        end
-
-        push!(out_L[l1], l2)
-        push!(in_L[l2], l1)
-
-        if l1 in D 
-            if l1 ∉ keys(_D)
-                _D[l1] = Vector{Symbol}()
-            end
-            push!(_D[l1], l2)
-        end
-
-        if l1 in G 
-            if l1 ∉ keys(_G)
-                _G[l1] = Vector{Symbol}()
-            end
-            _G[l1] = Vector{Symbol}()
-            push!(_G[l1], l2)
-        end
-
-        if l2 in D 
-            if l2 ∉ keys(_D)
-                _D[l2] = Vector{Symbol}()
-            end
-            _D[l2] = Vector{Symbol}()
-            push!(_D[l2], l1)
-        end
-
-        if l2 in G 
-            if l2 ∉ keys(_G)
-                _G[l2] = Vector{Symbol}()
-            end
-            _G[l2] = Vector{Symbol}()
-            push!(_G[l2], l1)
-        end
-    end
-    indexSets = IndexSets(D, G, L, B ,T, Ω, _D, _G, out_L, in_L)
-    return indexSets
-end
-
-indexSets = prepareIndexSets(D, G, L, B ,T, Ω)
-
-
-
 
 
 struct ParamDemand
-    demand        :: Dict{Int64, Dict{Symbol, Float64}}       ## set of load demand  Dict{t, Dict{d, demand}}
-    w             :: Dict{Symbol, Float64}                    ## priority level of load D
-    cb            :: Dict{Symbol, Float64}                    ## set of fire damage cost cᵢ at :b ∈ B
-    cg            :: Dict{Symbol, Float64}                    ## set of fire damage cost cᵢ at :g ∈ G
-    cl            :: Dict{Tuple{Symbol, Symbol}, Float64}     ## set of fire damage cost cᵢ at :l ∈ L
+    demand        :: Dict{Int64, Dict{Int64, Float64}}       ## set of load demand  Dict{t, Dict{d, demand}}
+    w             :: Dict{Int64, Float64}                    ## priority level of load D
+    cb            :: Dict{Int64, Float64}                    ## set of fire damage cost cᵢ at :b ∈ B
+    cg            :: Dict{Int64, Float64}                    ## set of fire damage cost cᵢ at :g ∈ G
+    cl            :: Dict{Tuple{Int64, Int64}, Float64}      ## set of fire damage cost cᵢ at :l ∈ L
 end
 
 
 struct ParamOPF  ## included in a period dict
-    b       :: Dict{Tuple{Symbol, Symbol}, Float64}      ## :l ∈ L
-    θmax    :: Float64
+    b       :: Dict{Tuple{Int64, Int64}, Float64}       ## :l ∈ L  total line charging susceptance
+    θmax    :: Float64                                  ## angle difference
     θmin    :: Float64
-    W       :: Dict{Tuple{Symbol, Symbol}, Float64}      ## :l ∈ L
-    smax    :: Dict{Symbol, Float64}                     ## :g ∈ G
-    smin    :: Dict{Symbol, Float64}                     ## :g ∈ G
+    W       :: Dict{Tuple{Int64, Int64}, Float64}       ## :l ∈ L
+    smax    :: Dict{Int64, Float64}                     ## :g ∈ G  Pmax
+    smin    :: Dict{Int64, Float64}                     ## :g ∈ G
 end
 
 
@@ -117,25 +55,25 @@ end
 struct RandomVariables  
     τ   ::Int64
 
-    ub   ::Dict{Symbol, Bool}                                                 ## whether there exists a fault
-    ug   ::Dict{Int64, Bool}   
-    ul   ::Dict{Tuple{Symbol, Symbol}, Bool} 
+    ub   ::Dict{Int64, Int64}                                                 ## whether there exists a fault
+    ug   ::Dict{Int64, Int64}   
+    ul   ::Dict{Tuple{Int64, Int64}, Int64} 
 
-    vb   ::Dict{Symbol, Bool}                                                 ## whether there exists a fire caused by natural condition
-    vg   ::Dict{Symbol, Bool}   
-    vl   ::Dict{Tuple{Symbol, Symbol}, Bool} 
+    vb   ::Dict{Int64, Int64}                                                 ## whether there exists a fire caused by natural condition
+    vg   ::Dict{Int64, Int64}   
+    vl   ::Dict{Tuple{Int64, Int64}, Int64} 
 
-    Ibb   ::Dict{Symbol, Symbol}                                              ## the set of buses which is affected by a bus
-    Ibg   ::Dict{Symbol, Symbol}                                              ## the set of generators which is affected by a bus
-    Ibl   ::Dict{Symbol, Tuple{Symbol, Symbol}}                               ## the set of lines which is affected by a bus
+    Ibb   ::Dict{Int64, Vector{Int64}}                                              ## the set of buses which is affected by a bus
+    Ibg   ::Dict{Int64, Vector{Int64}}                                              ## the set of generators which is affected by a bus
+    Ibl   ::Dict{Int64, Vector{Tuple{Int64, Int64}}}                               ## the set of lines which is affected by a bus
 
-    Igb   ::Dict{Symbol, Symbol}                                              ## the set of buses which is affected by a generators
-    Igg   ::Dict{Symbol, Symbol}                                              ## the set of generators which is affected by a generators
-    Igl   ::Dict{Symbol, Tuple{Symbol, Symbol}}                               ## the set of lines which is affected by a generators
+    Igb   ::Dict{Int64, Vector{Int64}}                                              ## the set of buses which is affected by a generators
+    Igg   ::Dict{Int64, Vector{Int64}}                                              ## the set of generators which is affected by a generators
+    Igl   ::Dict{Int64, Vector{Tuple{Int64, Int64}}}                               ## the set of lines which is affected by a generators
 
-    Ilb   ::Dict{Tuple{Symbol, Symbol}, Symbol}                               ## the set of buses which is affected by a line
-    Ilg   ::Dict{Tuple{Symbol, Symbol}, Symbol}                               ## the set of generators which is affected by a line
-    Ill   ::Dict{Tuple{Symbol, Symbol}, Tuple{Symbol, Symbol}}                ## the set of lines which is affected by a line
+    Ilb   ::Dict{Tuple{Int64, Int64}, Vector{Int64}}                               ## the set of buses which is affected by a line
+    Ilg   ::Dict{Tuple{Int64, Int64}, Vector{Int64}}                               ## the set of generators which is affected by a line
+    Ill   ::Dict{Tuple{Int64, Int64}, Vector{Tuple{Int64, Int64}}}                ## the set of lines which is affected by a line
 end
 
 # Ω_rv = Dict{Int64,RandomVariables}()
@@ -156,11 +94,11 @@ end
 
 ## data structure for levelset method
 mutable struct FunctionInfo
-    x_his        :: Dict{Int64, Dict{Symbol, Vector}}  ## record every x_j point
+    x_his        :: Dict{Int64, Dict{Int64, Vector}}  ## record every x_j point
     G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)
-    df           :: Dict{Symbol, Vector{Float64}} 
-    dG           :: Dict{Int64, Dict{:Symbol, Vector}}  ## actually is a matrix.  But we use dict to store it
+    df           :: Dict{Int64, Vector{Float64}} 
+    dG           :: Dict{Int64, Dict{:Int64, Vector}}  ## actually is a matrix.  But we use dict to store it
     G            :: Dict{Int64, Float64}          
 end
 

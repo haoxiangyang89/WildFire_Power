@@ -15,6 +15,7 @@ function forward_stage1_optimize!(indexSets::IndexSets,
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     Ω_rv::Dict{Int64, RandomVariables},
+                                    prob::Dict{Int64, Float64},
                                     cut_collection::Dict{Int64, CutCoefficient};  ## the index is ω
                                     θ_bound::Real = 0.0)
 
@@ -55,13 +56,25 @@ function forward_stage1_optimize!(indexSets::IndexSets,
     ## constraint 1f
     @constraint(Q, [g in G, t in 1:T], ParamOPF.smin * zg[g, t] <= s[g, t] <= ParamOPF.smax * zg[g, t] )
 
-    ## constraint g h i 
-    @constraint(Q, [i in B, t in 1:T, d in _D[i]], zb[i, t] >= x[t, d] )
-    @constraint(Q, [i in B, t in 1:T, d in _G[i]], zb[i, t] >= zg[g, t])
-    @constraint(Q, [i in B, t in 1:T, j in out_L[i]], zb[i, t] >= zl[(i, j), t] )
+    ## constraint g h i j
+    for i in B
+      if _D[i][1] != 0
+        @constraint(Q, [t in 1:T, d in _D[i]], zb[i, t] >= x[t, d] )
+      end
+      if _G[i][1] != 0
+        @constraint(Q, [t in 1:T, d in _G[i]], zb[i, t] >= zg[g, t])
+      end
+      
+      if out_L[i][1] != 0
+        @constraint(Q, [t in 1:T, j in out_L[i]], zb[i, t] >= zl[(i, j), t] )
+      end
 
-    ## constraint j k l m
-    @constraint(Q, [i in B, t in 1:T, j in in_L[i]], zb[i, t] >= zl[(j, i), t] )
+      if in_L[i][1] != 0
+        @constraint(Q, [t in 1:T, j in in_L[i]], zb[i, t] >= zl[(j, i), t] )
+      end
+    end
+
+    ## constraint k l m
     @constraint(Q, [i in B, t in 1:T-1], zb[i, t] >= zb[i, t+1] )
     @constraint(Q, [g in G, t in 1:T-1], zg[g, t] >= zg[g, t+1] )
     @constraint(Q, [l in L, t in 1:T-1], zl[l, t] >= zl[l, t+1] )
@@ -150,11 +163,20 @@ function forward_stage2_optimize!(indexSets::IndexSets,
     @constraint(Q, [g in G, t in randomVariables.τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
 
     ## constraint g h i j
-    @constraint(Q, [i in B, t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
-    @constraint(Q, [i in B, g in _G[i]], yb[i] >= yg[g])
-    @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)])
-    @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)])
-
+    for i in B
+      if _D[i][1] != 0
+        @constraint(Q, [t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
+      end
+      if _G[i][1] != 0
+        @constraint(Q, [g in _G[i]], yb[i] >= yg[g])
+      end
+      if out_L[i][1] != 0
+        @constraint(Q, [j in out_L[i]], yb[i] >= yl[(i, j)])
+      end
+      if in_L[i][1] != 0
+        @constraint(Q, [j in in_L[i]], yb[i] >= yl[(j, i)])
+      end
+    end
     ## constraint k l m 
     @constraint(Q, [i in B], yb[i] <= ẑ[:zb][i] )
     @constraint(Q, [g in G], yg[g] <= ẑ[:zg][g] )
