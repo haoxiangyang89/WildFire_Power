@@ -1,4 +1,4 @@
-using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, ParallelDataTransfer, Random, DataFrames, Dates
+using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Distributions, ParallelDataTransfer, Random, DataFrames, Dates, PowerModels
 
 const GRB_ENV = Gurobi.Env()
 
@@ -32,7 +32,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
     
     cut_collection = Dict{Int64, CutCoefficient}()  # here, the index is ω
 
-    for ω in 1:indexSets.Ω
+    for ω in indexSets.Ω
 
         cut_collection[ω] = CutCoefficient(
                                             Dict(1=> Dict(1=> 0.0), 2 => Dict()),   ## v
@@ -50,7 +50,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
     # gurobiResult = gurobiOptimize!(Ω, prob, StageCoefficient,
     #                                 binaryInfo = binaryInfo)
     # # OPT = round!(gurobiResult[1])[3]
-    OPT = gurobiResult[1]
+    # OPT = gurobiResult[1]
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
@@ -73,7 +73,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
             ## stage 2
             first_stage_decision = Stage1_collection[k][1]
             c = 0.0
-            for ω in 1:indexSets.Ω
+            for ω in indexSets.Ω
                 randomVariables = Ω_rv[ω]
 
                 ẑ = Dict(   :zg => first_stage_decision[:zg][:, randomVariables.τ - 1], 
@@ -87,15 +87,15 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                                 ẑ,
                                                                 randomVariables                        ## realization of the random time
                                                                 )[2]
-                c = c + prob[ω] * Stage2_collection[ω, k][2]
+                c = c + prob[ω] * Stage2_collection[ω, k]
             end
             u[k] = Stage1_collection[k][2] + c
         end
 
         ## compute the upper bound
         μ̄ = mean(u)
-        σ̂² = var(u)
-        UB = μ̄ + 1.96 * sqrt(σ̂²/M)
+        # σ̂² = Distributions.var(u)
+        # UB = μ̄ + 1.96 * sqrt(σ̂²/M)
         # UB = round!(UB)[3]
         ##################################### Parallel Computation for backward step ###########################
 
@@ -105,8 +105,13 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                 ϵ_value = 1e-5 # 1e-5
                 λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
                 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+                randomVariables = Ω_rv[ω]
+                ẑ = Dict(   :zg => first_stage_decision[:zg][:, randomVariables.τ - 1], 
+                            :zb => first_stage_decision[:zb][:, randomVariables.τ - 1], 
+                            :zl => first_stage_decision[:zl][:, randomVariables.τ - 1]
+                            )
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
-                                                                    ẑ, τ,                 
+                                                                    ẑ, randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
                                                                     ϵ = 1e-4, 
                                                                     interior_value = 0.5, 

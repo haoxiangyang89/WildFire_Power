@@ -76,13 +76,13 @@ end
 function backward_stage2_optimize!(indexSets::IndexSets, 
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
-                                    ẑ::Dict{Symbol, Vector{Int64}},
+                                    ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
                                     randomVariables::RandomVariables,                          ## realization of the random time
                                     π::Dict{Symbol, Vector{Float64}}
                                     )
 
-    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, IndexSets.Ω)
-    (_D, _G, in_L, out_L) = (indexSets._D, indexSets._G, indexSets.in_L, indexSets.out_L) 
+    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
+    (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => 0, 
@@ -92,7 +92,7 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     @variable(Q, θ_angle[B, 1:T]) 
     @variable(Q, P[L, 1:T] >= 0) ## elements in L is Tuple (i, j)
     @variable(Q, s[G, 1:T] >= 0)
-    @variable(Q, 0 <= x[1:T, D] <= 1)
+    @variable(Q, 0 <= x[D, 1:T] <= 1)
 
     @variable(Q, yb[B], Bin)
     @variable(Q, yg[G], Bin)
@@ -106,85 +106,81 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     @variable(Q, 0 <= zb[B] <= 1)
     @variable(Q, 0 <= zl[L] <= 1)
 
+    @variable(Q, slack_variable_b >= 0)
+    @variable(Q, slack_variable_c <= 0)
+
     ## constraint 3b 3c
     for l in L
       i = l[1]
       j = l[2]
-      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmax * (1 - yl[l] ) ) )
-      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + ParamOPF.θmin * (1 - yl[l] ) ) )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - yl[l] ) ) + slack_variable_b )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - yl[l] ) ) + slack_variable_c )
     end
 
     ## constraint 3d
-    @constraint(Q, [l in L, t in randomVariables.τ:T], - ParamOPF.W[l] * yl[l] <= P[l, t] <= ParamOPF.W[l] * yl[l] )
+    @constraint(Q, [l in L, t in randomVariables.τ:T], P[l, t] >= - paramOPF.W[l] * yl[l] )
+    @constraint(Q, [l in L, t in randomVariables.τ:T], P[l, t] <= paramOPF.W[l] * yl[l] )
 
     ## constraint 3e
-    @constraint(Q, [i in B, t in randomVariables.τ:T], sum(s[g, t] for g in _G[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[t, d] for d in _D[i]) )
+    @constraint(Q, [i in B, t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
-    ## constraint 3f
-    @constraint(Q, [g in G, t in randomVariables.τ:T], ParamOPF.smin * yg[g] <= s[g, t] <= ParamOPF.smax * yg[g])
+   ## constraint 3f
+    @constraint(Q, [g in G, t in randomVariables.τ:T], s[g, t] >= paramOPF.smin[g] * yg[g])
+    @constraint(Q, [g in G, t in randomVariables.τ:T], s[g, t] <= paramOPF.smax[g] * yg[g])
 
     ## constraint g h i j
-    for i in B
-        if _D[i][1] != 0
-            @constraint(Q, [t in randomVariables.τ:T, d in _D[i]], yb[i] >= x[t, d])
-        end
-        if _G[i][1] != 0
-            @constraint(Q, [g in _G[i]], yb[i] >= yg[g])
-        end
-        if out_L[i][1] != 0
-            @constraint(Q, [j in out_L[i]], yb[i] >= yl[(i, j)])
-        end
-        if in_L[i][1] != 0
-            @constraint(Q, [j in in_L[i]], yb[i] >= yl[(j, i)])
-        end
-    end
+    @constraint(Q, [i in B, t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )
+    @constraint(Q, [i in B, g in Gᵢ[i]], yb[i] >= yg[g])
+    @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)] )
+    @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)] )
 
     ## constraint k l m 
     @constraint(Q, [i in B], yb[i] <= zb[i] )
     @constraint(Q, [g in G], yg[g] <= zg[g] )
     @constraint(Q, [l in L], yl[l] <= zl[l] )
 
-    @constraint(Q, [i in B], yb[i] <= 1- νb[b] )
+    @constraint(Q, [i in B], yb[i] <= 1- νb[i] )
     @constraint(Q, [g in G], yg[g] <= 1- νg[g] )
     @constraint(Q, [l in L], yl[l] <= 1- νl[l] )
 
-    @constraint(Q, [i in B], νb[i] >= vb[i] )
-    @constraint(Q, [g in G], νg[g] >= vg[g] )
-    @constraint(Q, [l in L], νl[l] >= vl[l] )
+    @constraint(Q, [i in B], νb[i] >= randomVariables.vb[i] )
+    @constraint(Q, [g in G], νg[g] >= randomVariables.vg[g] )
+    @constraint(Q, [l in L], νl[l] >= randomVariables.vl[l] )
 
     ## constraint n
-    @constraint(Q, [i in B, j in randomVariables.Ibb[i]], νb[j] >= randomVariables.ub[i] * zb[i] )
-    @constraint(Q, [i in B, j in randomVariables.Ibg[i]], νg[j] >= randomVariables.ub[i] * zb[i] )
-    @constraint(Q, [i in B, j in randomVariables.Ibl[i]], νl[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in unique(randomVariables.Ibb[i])], νb[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in unique(randomVariables.Ibg[i])], νg[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in B, j in unique(randomVariables.Ibl[i])], νl[j] >= randomVariables.ub[i] * zb[i] )
 
-    @constraint(Q, [i in G, j in randomVariables.Igb[i]], νb[j] >= randomVariables.ug[i] * zg[i] )
-    @constraint(Q, [i in G, j in randomVariables.Igg[i]], νg[j] >= randomVariables.ug[i] * zg[i] )
-    @constraint(Q, [i in G, j in randomVariables.Igl[i]], νl[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in unique(randomVariables.Igb[i])], νb[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in unique(randomVariables.Igg[i])], νg[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in G, j in unique(randomVariables.Igl[i])], νl[j] >= randomVariables.ug[i] * zg[i] )
 
-    @constraint(Q, [i in L, j in randomVariables.Ilb[i]], νb[j] >= randomVariables.ul[i] * zl[i] )
-    @constraint(Q, [i in L, j in randomVariables.Ilg[i]], νg[j] >= randomVariables.ul[i] * zl[i] )
-    @constraint(Q, [i in L, j in randomVariables.Ill[i]], νl[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in unique(randomVariables.Ilb[i])], νb[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in unique(randomVariables.Ilg[i])], νg[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in L, j in unique(randomVariables.Ill[i])], νl[j] >= randomVariables.ul[i] * zl[i] )
 
 
     ## objective function
-    @objecive(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t, d] * (1 - x[t, d]) for d in D ) for t in randomVariables.τ:T) +
-            sum(ParamDemand.cb[i] * νb[i] for i in B) + 
-            sum(ParamDemand.cg[g] * νg[g] for g in G) + 
-            sum(ParamDemand.cl[l] * νl[l] for l in L) +
-            π[:zb]' * (ẑ[:zb] .- zb) + π[:zg]' * (ẑ[:zg] .- zg) + π[:zl]' * (ẑ[:zl] .- zl)
+    @objective(Q, Min,  
+            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
+            sum(paramDemand.cb[i] * νb[i] for i in B) + 
+            sum(paramDemand.cg[g] * νg[g] for g in G) + 
+            sum(paramDemand.cl[l] * νl[l] for l in L) +
+            π[:zb]' * (ẑ[:zb] .- zb) + π[:zg]' * (ẑ[:zg] .- zg) + π[:zl]' * (ẑ[:zl] .- zl) 
+            + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
             )
 
     optimize!(Q)
-    state_variable = Dict{:Symbol, Vector{Int64}}(:zg => round.(JuMP.value.(zg)), 
+    state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(zg)), 
                                                     :zb => round.(JuMP.value.(zb)), 
                                                     :zl => round.(JuMP.value.(zl))
                                                     )
     F  = JuMP.objective_value(Q)
-    ∇F = Dict{:Symbol, Vector}(     :zg => ẑ[:zb] .- state_variable[:zb],
-                                    :zb => ẑ[:zg] .- state_variable[:zg],
-                                    :zl => ẑ[:zl] .- state_variable[:zl]
-                                    )
+    ∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ state_variable[:zb],
+                                                                        :zg => - ẑ[:zg] .+ state_variable[:zg],
+                                                                        :zl => - ẑ[:zl] .+ state_variable[:zl]
+                                                                        )
 
 
     return [F, ∇F]
@@ -197,7 +193,7 @@ end
 function LevelSetMethod_optimization!(  indexSets::IndexSets, 
                                         paramDemand::ParamDemand, 
                                         paramOPF::ParamOPF, 
-                                        ẑ::Dict{Symbol, Vector{Int64}},
+                                        ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
                                         randomVariables::RandomVariables;                          ## realization of the random time
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                         ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true
@@ -208,8 +204,8 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     ######################################################################################################################
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
-    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, IndexSets.Ω)
-    (_D, _G, in_L, out_L) = (indexSets._D, indexSets._G, indexSets.in_L, indexSets.out_L) 
+    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
+    (_D, _G, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
 
     x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
                                                 :zg => [interior_value for i in 1:length(G)], 
@@ -229,12 +225,12 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
 
     ## collect the information from the objecive f, and constraints G
-    function compute_f_G(π::Dict{Symbol, Vector{Float64}}; 
+    function compute_f_G(   x₀::Dict{Symbol, Vector{Float64}}; 
                             Enhanced_Cut::Bool = true, f_star_value::Float64 = f_star_value, 
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
                             paramOPF::ParamOPF = paramOPF, randomVariables::RandomVariables = randomVariables, 
-                            ẑ::Dict{Symbol, Vector{Int64}} = ẑ
+                            ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}} = ẑ
                             )
 
         F_solution = backward_stage2_optimize!(indexSets, 
@@ -242,28 +238,28 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 paramOPF, 
                                                 ẑ,
                                                 randomVariables,                          ## realization of the random time
-                                                π
+                                                x₀
                                                 )
 
         if Enhanced_Cut
             function_value_info  = Dict(1 => - F_solution[1] - 
-                                                π[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
-                                                π[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
-                                                π[:zl]' * (x_interior[:zl] .- ẑ[:zl]),
+                                                x₀[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
+                                                x₀[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
+                                                x₀[:zl]' * (x_interior[:zl] .- ẑ[:zl]),
 
-                                        2 => Dict{:Symbol, Vector}(:zg => - F_solution[2][:zb] - (x_interior[:zb] .- ẑ[:zb]),
-                                                                    :zb => - F_solution[2][:zg] - (x_interior[:zg] .- ẑ[:zg]),
-                                                                    :zl => - F_solution[2][:zl] - (x_interior[:zl] .- ẑ[:zl])
+                                        2 => Dict{Symbol,  Vector{Float64}}( :zg => F_solution[2][:zb] .- (x_interior[:zb] .- ẑ[:zb]),
+                                                                    :zb => F_solution[2][:zg] .- (x_interior[:zg] .- ẑ[:zg]),
+                                                                    :zl => F_solution[2][:zl] .- (x_interior[:zl] .- ẑ[:zl])
                                                                     ),
                                         3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
-                                        4 => Dict(1 => - F_solution[2]),
+                                        4 => Dict(1 => F_solution[2]),
                                         )
 
             # else
             #     function_value_info  = Dict(1 => - F_solution[1] - π' *  sum_generator,
             #                                 2 => - F_solution[2] - sum_generator,
             #                                 3 => Dict(1 => 0.0 ),
-            #                                 4 => Dict(1 => - F_solution[2] * 0),
+            #                                 4 => Dict(1 => F_solution[2] * 0),
             #                                 )
         end
         return function_value_info
@@ -275,7 +271,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     ##############################################   level set method   ##################################################
     ######################################################################################################################
     
-    x₀ = Dict{Symbol, Vector}(      :zb => [1. for i in 1:length(B)], 
+    x₀ = Dict{Symbol, Vector{Float64}}(      :zb => [1. for i in 1:length(B)], 
                                     :zg => [1. for i in 1:length(G)], 
                                     :zl => [1. for i in 1:length(L)]
                                     )
@@ -283,7 +279,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     α = 1/2
 
     ## trajectory
-    function_value_info = compute_f_G(x₀, Enhanced_Cut = Enhanced_Cut)
+    function_value_info = compute_f_G(x₀; Enhanced_Cut = Enhanced_Cut)
     function_info = FunctionInfo(   Dict(1 => x₀), 
                                     function_value_info[3], 
                                     Dict(1 => function_value_info[1]), 

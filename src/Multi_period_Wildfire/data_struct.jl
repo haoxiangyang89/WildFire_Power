@@ -8,8 +8,8 @@ struct IndexSets
     B       :: Vector{Int64}                    ## set of buses
     T       :: Int64                            ## set of time periods  1:T
     Ω       :: Vector{Int64}                    ## r.v. index set
-    _D      :: Dict{Int64,Vector{Int64}}        ## components connected to the key
-    _G      :: Dict{Int64,Vector{Int64}}
+    Dᵢ      :: Dict{Int64,Vector{Int64}}       
+    Gᵢ      :: Dict{Int64,Vector{Int64}}
     out_L   :: Dict{Int64,Vector{Int64}}
     in_L    :: Dict{Int64,Vector{Int64}}
 end
@@ -21,6 +21,7 @@ struct ParamDemand
     cb            :: Dict{Int64, Float64}                    ## set of fire damage cost cᵢ at :b ∈ B
     cg            :: Dict{Int64, Float64}                    ## set of fire damage cost cᵢ at :g ∈ G
     cl            :: Dict{Tuple{Int64, Int64}, Float64}      ## set of fire damage cost cᵢ at :l ∈ L
+    penalty       :: Float64                                 ## penalty paramter for constraints b and c
 end
 
 
@@ -94,11 +95,11 @@ end
 
 ## data structure for levelset method
 mutable struct FunctionInfo
-    x_his        :: Dict{Int64, Dict{Int64, Vector}}  ## record every x_j point
+    x_his        :: Dict{Int64, Dict{Symbol, Vector{Float64}}}  ## record every x_j point
     G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)
-    df           :: Dict{Int64, Vector{Float64}} 
-    dG           :: Dict{Int64, Dict{:Int64, Vector}}  ## actually is a matrix.  But we use dict to store it
+    df           :: Dict{Symbol, Vector{Float64}}
+    dG           :: Dict{Int64, Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}}  ## actually is a matrix.  But we use dict to store it
     G            :: Dict{Int64, Float64}          
 end
 
@@ -130,80 +131,3 @@ struct LevelSetMethodParam
     Output_Gap    ::Bool      ## if True will print Δ info
     Adj           ::Bool      ## whether adjust oracle lower bound
 end
-
-# levelSetMethodParam = LevelSetMethodParam(μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj)
-
-
-
-################### nonanticipativity for multistage problem #######################
-
-function recursion_scenario_tree(pathList::Vector{Int64}, P::Float64, scenario_sequence::Dict{Int64, Dict{Int64, Any}}, t::Int64;   
-    Ω::Dict{Int64,Dict{Int64,RandomVariables}} = Ω, prob::Dict{Int64,Vector{Float64}} = prob, T::Int64 = 2)
-
-    if t <= T
-        for ω_key in keys(Ω[t])
-
-            pathList_copy = copy(pathList)
-            P_copy = copy(P)
-
-            push!(pathList_copy, ω_key)
-            P_copy = P_copy * prob[t][ω_key]
-
-            recursion_scenario_tree(pathList_copy, P_copy, scenario_sequence, t+1, Ω = Ω, prob = prob, T = T)
-        end
-    else
-        if haskey(scenario_sequence, 1)
-            scenario_sequence[maximum(keys(scenario_sequence))+1] = Dict(1 => pathList, 2 => P)
-        else
-            scenario_sequence[1] = Dict(1 => pathList, 2 => P)
-        end
-        return scenario_sequence
-    end
-
-end
-
-# scenario_sequence = Dict{Int64, Dict{Int64, Any}}()  ## the first index is for scenario index, the second one is for stage
-# pathList = Vector{Int64}()
-# push!(pathList, 1)
-# P = 1.0
-
-# recursion_scenario_tree(pathList, P, scenario_sequence, 2, T = T)
-# scenario_tree = scenario_sequence
-
-
-
-## sampling function 
-function DrawSamples(scenario_sequence::Dict{Int64, Dict{Int64, Any}})
-    # draw f, A, B, C, b from Ωₜ according to distribution P
-    P = Vector{Float64}()
-    for key in keys(scenario_sequence)
-        push!(P, scenario_sequence[key][2])
-    end
-    items = [i for i in keys(scenario_sequence)]
-    weights = Weights(P)
-    j = sample(items, weights)
-    return j
-end
-
-
-## form scenarios
-function SampleScenarios(scenario_sequence::Dict{Int64, Dict{Int64, Any}}; T::Int64 = 5, M::Int64 = 30)
-    ## a dict to store realization for each stage t in scenario k
-    scenarios = Dict{Int64, Int64}()
-    for k in 1:M
-          scenarios[k] = DrawSamples(scenario_sequence)
-    end
-    return scenarios
-end
-
-
-
-
-
-function round!(a::Float64)               ## a = 1.3333e10
-    b = floor(log10(a))                   ## b = 10
-    c = round(a/10^b,digits = 2)          ## c = 1.33
-    d = c * 10^b                          ## d = 1.33e10
-    return [b, c, d]
-end
-
