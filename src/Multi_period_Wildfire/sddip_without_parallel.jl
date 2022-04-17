@@ -17,8 +17,9 @@ max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
 
 function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}}, 
                             prob::Dict{Int64,Float64}, 
-                            indexSets::IndexSets; 
-                            scenario_sequence::Dict{Int64, Dict{Int64, Any}} = scenario_sequence, 
+                            indexSets::IndexSets, 
+                            paramDemand::ParamDemand, 
+                            paramOPF::ParamOPF; 
                             ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
                             Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     ## d: x dim
@@ -99,7 +100,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         ##################################### Parallel Computation for backward step ###########################
 
         for k in 1:M 
-            for ω in Ω
+            for ω in keys(Ω_rv)
                 # @info "$t $k $j"
                 ϵ_value = 1e-5 # 1e-5
                 λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
@@ -128,14 +129,15 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
 
 
         ## compute the lower bound
-        LB = forward_stage1_optimize!(indexSets, 
+        _LB = forward_stage1_optimize!(indexSets, 
                                         paramDemand, 
                                         paramOPF, 
                                         Ω_rv,
                                         prob,
                                         cut_collection;  ## the index is ω
                                         θ_bound = 0.0
-                                        )[3]
+                                        )
+        LB = _LB[3]
         
         t1 = now()
         iter_time = (t1 - t0).value/1000

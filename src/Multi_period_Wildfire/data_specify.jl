@@ -37,7 +37,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = 456.                 ############# need to revise
+        cb[b] = 1e6                 ############# need to revise
     end
 
     for i in keys(network_data["load"])
@@ -62,7 +62,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
 
         smax[g] = network_data["gen"][i]["pmax"]
         smin[g] = network_data["gen"][i]["pmin"]
-        cg[g] = 456.                               ############# need to revis
+        cg[g] = 5e5                               ############# need to revis
     end
 
 
@@ -75,18 +75,18 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
 
         _b[l] = network_data["branch"][i]["b_fr"]   ## total line charging susceptance
         W[l] = network_data["branch"][i]["rate_a"]              
-        cl[l] = 456.                                ############# need to revise
+        cl[l] = 7e4                                ############# need to revise
     end
 
     paramOPF = ParamOPF(_b, θmax, θmin, W, smax, smin)
     indexSets = IndexSets(D, G, L, B ,T, [1:Ω...], Dᵢ, Gᵢ, out_L, in_L)
-    paramDemand = ParamDemand(Demand, w, cb, cg, cl, 1e4)
+    paramDemand = ParamDemand(Demand, w, cb, cg, cl, 1e5)
 
 
     ## construct random variables
     Ω_rv = Dict{Int64, RandomVariables}()
     for ω in 1:Ω 
-        τ = 2 
+        τ = rand(2:5)
 
         ub = Dict{Int64, Int64}()
         ug = Dict{Int64, Int64}()
@@ -200,7 +200,7 @@ network_data = PowerModels.parse_file("/Users/aaron/matpower7.1/data/case30.m")
 
 
 ## construct _prepareIndexSets = prepareIndexSets(D, G, L, B ,3, [1,2,3,4])
-T = 3
+T = 5
 Ω = 4
 pub = .1
 pug = .1

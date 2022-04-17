@@ -83,16 +83,6 @@ end
 
 
 
-
-struct GurobiModelInfo
-    model           :: Model
-    x               :: Array{VariableRef} ## for current state, x is the number of generators
-    y               :: Array{VariableRef} ## amount of electricity
-    slack           :: Matrix{VariableRef}
-    num_Ω           :: Int64
-end
-
-
 ## data structure for levelset method
 mutable struct FunctionInfo
     x_his        :: Dict{Int64, Dict{Symbol, Vector{Float64}}}  ## record every x_j point
