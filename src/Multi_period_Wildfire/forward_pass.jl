@@ -25,7 +25,7 @@ function forward_stage1_optimize!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
-                                          "Threads" => 1) 
+                                          "Threads" => 0) 
                                           )
                                           
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i
@@ -79,9 +79,9 @@ function forward_stage1_optimize!(indexSets::IndexSets,
       k = length(keys(cut_coefficient.v[1]))  ## scenario num
 
       @constraint(Q, [i in 1:iter-1, m in 1:k, ω in Ω], θ[ω] .>= cut_coefficient.v[i][m] + 
-                                                sum(cut_coefficient.πb[i][m]' * zb[:, Ω_rv[ω].τ] +
+                                                cut_coefficient.πb[i][m]' * zb[:, Ω_rv[ω].τ] +
                                                 cut_coefficient.πg[i][m]' * zg[:, Ω_rv[ω].τ] +
-                                                cut_coefficient.πl[i][m]' * zl[:, Ω_rv[ω].τ] for t in 1:T)
+                                                cut_coefficient.πl[i][m]' * zl[:, Ω_rv[ω].τ]
                                                 )
 
     end
@@ -100,7 +100,7 @@ function forward_stage1_optimize!(indexSets::IndexSets,
     state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
     state_value    = JuMP.objective_value(Q) - sum(prob[ω] * JuMP.value(θ[ω]) for ω in Ω)       ## 1a first term
 
-    return [state_variable, state_value, JuMP.objective_value(Q)]  ## returen [Lt, y, θ, f]
+    return [state_variable, state_value, JuMP.objective_value(Q)]  ## returen [state_variable, first_stage value, objective_value(Q)]
 end
 
 
@@ -125,7 +125,7 @@ function forward_stage2_optimize!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => 0, 
-                "Threads" => 1) 
+                "Threads" => 0) 
                 )
 
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i

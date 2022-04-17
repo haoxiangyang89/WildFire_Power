@@ -47,10 +47,12 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
     named_tuple = (; zip(col_names, type[] for type in col_types )...)
     sddipResult = DataFrame(named_tuple) # 0×7 DataFrame
     gapList = []
-    # gurobiResult = gurobiOptimize!(Ω, prob, StageCoefficient,
-    #                                 binaryInfo = binaryInfo)
-    # # OPT = round!(gurobiResult[1])[3]
-    # OPT = gurobiResult[1]
+    gurobiResult = gurobiOptimize!(indexSets, 
+                                    paramDemand, 
+                                    paramOPF, 
+                                    Ω_rv,
+                                    prob)  
+    OPT = gurobiResult["OPT"]
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
@@ -71,14 +73,14 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                             θ_bound = 0.0)
             
             ## stage 2
-            first_stage_decision = Stage1_collection[k][1]
+            # first_stage_decision = Stage1_collection[k][1]
             c = 0.0
             for ω in indexSets.Ω
                 randomVariables = Ω_rv[ω]
 
-                ẑ = Dict(   :zg => first_stage_decision[:zg][:, randomVariables.τ - 1], 
-                            :zb => first_stage_decision[:zb][:, randomVariables.τ - 1], 
-                            :zl => first_stage_decision[:zl][:, randomVariables.τ - 1]
+                ẑ = Dict(   :zg => Stage1_collection[k][1][:zg][:, randomVariables.τ - 1], 
+                            :zb => Stage1_collection[k][1][:zb][:, randomVariables.τ - 1], 
+                            :zl => Stage1_collection[k][1][:zl][:, randomVariables.τ - 1]
                             )
 
                 Stage2_collection[ω, k] = forward_stage2_optimize!(indexSets, 
@@ -93,10 +95,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         end
 
         ## compute the upper bound
-        μ̄ = mean(u)
-        # σ̂² = Distributions.var(u)
-        # UB = μ̄ + 1.96 * sqrt(σ̂²/M)
-        # UB = round!(UB)[3]
+        UB = mean(u)
         ##################################### Parallel Computation for backward step ###########################
 
         for k in 1:M 
@@ -106,9 +105,9 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                 λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
                 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                 randomVariables = Ω_rv[ω]
-                ẑ = Dict(   :zg => first_stage_decision[:zg][:, randomVariables.τ - 1], 
-                            :zb => first_stage_decision[:zb][:, randomVariables.τ - 1], 
-                            :zl => first_stage_decision[:zl][:, randomVariables.τ - 1]
+                ẑ = Dict(   :zg => Stage1_collection[k][1][:zg][:, randomVariables.τ - 1], 
+                            :zb => Stage1_collection[k][1][:zb][:, randomVariables.τ - 1], 
+                            :zl => Stage1_collection[k][1][:zl][:, randomVariables.τ - 1]
                             )
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ, randomVariables,                 
@@ -129,16 +128,15 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
 
 
         ## compute the lower bound
-        _LB = forward_stage1_optimize!(indexSets, 
+        LB = forward_stage1_optimize!(indexSets, 
                                         paramDemand, 
                                         paramOPF, 
                                         Ω_rv,
                                         prob,
                                         cut_collection;  ## the index is ω
                                         θ_bound = 0.0
-                                        )
-        # LB = round!(_LB[3] + _LB[4])[3]
-        LB = _LB[3]
+                                        )[3]
+        
         t1 = now()
         iter_time = (t1 - t0).value/1000
         total_Time = (t1 - initial).value/1000
@@ -149,7 +147,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         
         i = i + 1
         
-        @info "iter num is $(i-1), LB is $LB, UB is $UB, first stage decision is $(A*_LB[1])"
+        @info "iter num is $(i-1), LB is $LB, UB is $UB"
         if OPT-LB <= ϵ * OPT || i > max_iter
             return Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) 
         end

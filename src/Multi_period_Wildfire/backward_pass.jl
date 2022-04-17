@@ -12,7 +12,7 @@ function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV),
             "OutputFlag" => Output, 
-            "Threads" => 1)
+            "Threads" => 0)
             )
 
     @variable(model_alpha, z)
@@ -46,19 +46,20 @@ end
 """
     This function is to add constraints for the model f_star and nxt pt.
 """
+
 function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter::Int64)
     m = length(function_info.G)
 
     xⱼ = function_info.x_his[iter]
     # add constraints     
-    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df[:zb]' * (model_info.xb - xⱼ[:zb] ) 
-                                                                    + function_info.df[:zg]' * (model_info.xg - xⱼ[:zg] )
-                                                                    + function_info.df[:zl]' * (model_info.xl - xⱼ[:zl] )
+    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df[:zb]' * (model_info.xb .- xⱼ[:zb]) 
+                                                                    + function_info.df[:zg]' * (model_info.xg .- xⱼ[:zg] )
+                                                                    + function_info.df[:zl]' * (model_info.xl .- xⱼ[:zl] )
                                                                     )
 
-    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + function_info.dG[k][:zb]' * (model_info.xb - xⱼ[:zb])
-                                                                                 + function_info.dG[k][:zg]' * (model_info.xg - xⱼ[:zg])
-                                                                                 + function_info.dG[k][:zl]' * (model_info.xl - xⱼ[:zl])  
+    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + sum(function_info.dG[k][:zb] .* (model_info.xb .- xⱼ[:zb]))
+                                                                                 + sum(function_info.dG[k][:zg] .* (model_info.xg .- xⱼ[:zg]))
+                                                                                 + sum(function_info.dG[k][:zl] .* (model_info.xl .- xⱼ[:zl]))  
                                                                                  ) 
 end
 
@@ -81,92 +82,92 @@ function backward_stage2_optimize!(indexSets::IndexSets,
                                     π::Dict{Symbol, Vector{Float64}}
                                     )
 
-    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
-    (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
+    # (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
+    # (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => 0, 
-                "Threads" => 1) 
+                "Threads" => 0) 
                 )
 
-    @variable(Q, θ_angle[B, 1:T]) 
-    @variable(Q, P[L, 1:T] >= 0) ## elements in L is Tuple (i, j)
-    @variable(Q, s[G, 1:T] >= 0)
-    @variable(Q, 0 <= x[D, 1:T] <= 1)
+    @variable(Q, θ_angle[indexSets.B, 1:indexSets.T]) 
+    @variable(Q, P[indexSets.L, 1:indexSets.T] >= 0) ## elements in L is Tuple (i, j)
+    @variable(Q, s[indexSets.G, 1:indexSets.T] >= 0)
+    @variable(Q, 0 <= x[indexSets.D, 1:indexSets.T] <= 1)
 
-    @variable(Q, yb[B], Bin)
-    @variable(Q, yg[G], Bin)
-    @variable(Q, yl[L], Bin)
+    @variable(Q, yb[indexSets.B], Bin)
+    @variable(Q, yg[indexSets.G], Bin)
+    @variable(Q, yl[indexSets.L], Bin)
 
-    @variable(Q, νb[B], Bin)
-    @variable(Q, νg[G], Bin)
-    @variable(Q, νl[L], Bin)
+    @variable(Q, νb[indexSets.B], Bin)
+    @variable(Q, νg[indexSets.G], Bin)
+    @variable(Q, νl[indexSets.L], Bin)
 
-    @variable(Q, 0 <= zg[G] <= 1)
-    @variable(Q, 0 <= zb[B] <= 1)
-    @variable(Q, 0 <= zl[L] <= 1)
+    @variable(Q, 0 <= zg[indexSets.G] <= 1)
+    @variable(Q, 0 <= zb[indexSets.B] <= 1)
+    @variable(Q, 0 <= zl[indexSets.L] <= 1)
 
     @variable(Q, slack_variable_b >= 0)
     @variable(Q, slack_variable_c <= 0)
 
     ## constraint 3b 3c
-    for l in L
+    for l in indexSets.L
       i = l[1]
       j = l[2]
-      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - yl[l] ) ) + slack_variable_b )
-      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - yl[l] ) ) + slack_variable_c )
+      @constraint(Q, [t in randomVariables.τ:indexSets.T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - yl[l] ) ) + slack_variable_b )
+      @constraint(Q, [t in randomVariables.τ:indexSets.T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - yl[l] ) ) + slack_variable_c )
     end
 
     ## constraint 3d
-    @constraint(Q, [l in L, t in randomVariables.τ:T], P[l, t] >= - paramOPF.W[l] * yl[l] )
-    @constraint(Q, [l in L, t in randomVariables.τ:T], P[l, t] <= paramOPF.W[l] * yl[l] )
+    @constraint(Q, [l in indexSets.L, t in randomVariables.τ:indexSets.T], P[l, t] >= - paramOPF.W[l] * yl[l] )
+    @constraint(Q, [l in indexSets.L, t in randomVariables.τ:indexSets.T], P[l, t] <= paramOPF.W[l] * yl[l] )
 
     ## constraint 3e
-    @constraint(Q, [i in B, t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+    @constraint(Q, [i in indexSets.B, t in randomVariables.τ:indexSets.T], sum(s[g, t] for g in indexSets.Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
    ## constraint 3f
-    @constraint(Q, [g in G, t in randomVariables.τ:T], s[g, t] >= paramOPF.smin[g] * yg[g])
-    @constraint(Q, [g in G, t in randomVariables.τ:T], s[g, t] <= paramOPF.smax[g] * yg[g])
+    @constraint(Q, [g in indexSets.G, t in randomVariables.τ:indexSets.T], s[g, t] >= paramOPF.smin[g] * yg[g])
+    @constraint(Q, [g in indexSets.G, t in randomVariables.τ:indexSets.T], s[g, t] <= paramOPF.smax[g] * yg[g])
 
     ## constraint g h i j
-    @constraint(Q, [i in B, t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )
-    @constraint(Q, [i in B, g in Gᵢ[i]], yb[i] >= yg[g])
-    @constraint(Q, [i in B, j in out_L[i]], yb[i] >= yl[(i, j)] )
-    @constraint(Q, [i in B, j in in_L[i]], yb[i] >= yl[(j, i)] )
+    @constraint(Q, [i in indexSets.B, t in randomVariables.τ:indexSets.T, d in indexSets.Dᵢ[i]], yb[i] >= x[d, t] )
+    @constraint(Q, [i in indexSets.B, g in indexSets.Gᵢ[i]], yb[i] >= yg[g])
+    @constraint(Q, [i in indexSets.B, j in indexSets.out_L[i]], yb[i] >= yl[(i, j)] )
+    @constraint(Q, [i in indexSets.B, j in indexSets.in_L[i]], yb[i] >= yl[(j, i)] )
 
     ## constraint k l m 
-    @constraint(Q, [i in B], yb[i] <= zb[i] )
-    @constraint(Q, [g in G], yg[g] <= zg[g] )
-    @constraint(Q, [l in L], yl[l] <= zl[l] )
+    @constraint(Q, [i in indexSets.B], yb[i] <= zb[i] )
+    @constraint(Q, [g in indexSets.G], yg[g] <= zg[g] )
+    @constraint(Q, [l in indexSets.L], yl[l] <= zl[l] )
 
-    @constraint(Q, [i in B], yb[i] <= 1- νb[i] )
-    @constraint(Q, [g in G], yg[g] <= 1- νg[g] )
-    @constraint(Q, [l in L], yl[l] <= 1- νl[l] )
+    @constraint(Q, [i in indexSets.B], yb[i] <= 1- νb[i] )
+    @constraint(Q, [g in indexSets.G], yg[g] <= 1- νg[g] )
+    @constraint(Q, [l in indexSets.L], yl[l] <= 1- νl[l] )
 
-    @constraint(Q, [i in B], νb[i] >= randomVariables.vb[i] )
-    @constraint(Q, [g in G], νg[g] >= randomVariables.vg[g] )
-    @constraint(Q, [l in L], νl[l] >= randomVariables.vl[l] )
+    @constraint(Q, [i in indexSets.B], νb[i] >= randomVariables.vb[i] )
+    @constraint(Q, [g in indexSets.G], νg[g] >= randomVariables.vg[g] )
+    @constraint(Q, [l in indexSets.L], νl[l] >= randomVariables.vl[l] )
 
     ## constraint n
-    @constraint(Q, [i in B, j in unique(randomVariables.Ibb[i])], νb[j] >= randomVariables.ub[i] * zb[i] )
-    @constraint(Q, [i in B, j in unique(randomVariables.Ibg[i])], νg[j] >= randomVariables.ub[i] * zb[i] )
-    @constraint(Q, [i in B, j in unique(randomVariables.Ibl[i])], νl[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in indexSets.B, j in unique(randomVariables.Ibb[i])], νb[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in indexSets.B, j in unique(randomVariables.Ibg[i])], νg[j] >= randomVariables.ub[i] * zb[i] )
+    @constraint(Q, [i in indexSets.B, j in unique(randomVariables.Ibl[i])], νl[j] >= randomVariables.ub[i] * zb[i] )
 
-    @constraint(Q, [i in G, j in unique(randomVariables.Igb[i])], νb[j] >= randomVariables.ug[i] * zg[i] )
-    @constraint(Q, [i in G, j in unique(randomVariables.Igg[i])], νg[j] >= randomVariables.ug[i] * zg[i] )
-    @constraint(Q, [i in G, j in unique(randomVariables.Igl[i])], νl[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in indexSets.G, j in unique(randomVariables.Igb[i])], νb[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in indexSets.G, j in unique(randomVariables.Igg[i])], νg[j] >= randomVariables.ug[i] * zg[i] )
+    @constraint(Q, [i in indexSets.G, j in unique(randomVariables.Igl[i])], νl[j] >= randomVariables.ug[i] * zg[i] )
 
-    @constraint(Q, [i in L, j in unique(randomVariables.Ilb[i])], νb[j] >= randomVariables.ul[i] * zl[i] )
-    @constraint(Q, [i in L, j in unique(randomVariables.Ilg[i])], νg[j] >= randomVariables.ul[i] * zl[i] )
-    @constraint(Q, [i in L, j in unique(randomVariables.Ill[i])], νl[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in indexSets.L, j in unique(randomVariables.Ilb[i])], νb[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in indexSets.L, j in unique(randomVariables.Ilg[i])], νg[j] >= randomVariables.ul[i] * zl[i] )
+    @constraint(Q, [i in indexSets.L, j in unique(randomVariables.Ill[i])], νl[j] >= randomVariables.ul[i] * zl[i] )
 
 
     ## objective function
     @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
-            sum(paramDemand.cb[i] * νb[i] for i in B) + 
-            sum(paramDemand.cg[g] * νg[g] for g in G) + 
-            sum(paramDemand.cl[l] * νl[l] for l in L) +
+            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+            sum(paramDemand.cb[i] * νb[i] for i in indexSets.B) + 
+            sum(paramDemand.cg[g] * νg[g] for g in indexSets.G) + 
+            sum(paramDemand.cl[l] * νl[l] for l in indexSets.L) +
             π[:zb]' * (ẑ[:zb] .- zb) + π[:zg]' * (ẑ[:zg] .- zg) + π[:zl]' * (ẑ[:zl] .- zl) 
             + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
             )
@@ -204,9 +205,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     ######################################################################################################################
     ##  μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
-    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
-    (_D, _G, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
-
+ 
     x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
                                                 :zg => [interior_value for i in 1:length(G)], 
                                                 :zl => [interior_value for i in 1:length(L)]
@@ -247,8 +246,8 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 x₀[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
                                                 x₀[:zl]' * (x_interior[:zl] .- ẑ[:zl]),
 
-                                        2 => Dict{Symbol,  Vector{Float64}}( :zg => F_solution[2][:zb] .- (x_interior[:zb] .- ẑ[:zb]),
-                                                                    :zb => F_solution[2][:zg] .- (x_interior[:zg] .- ẑ[:zg]),
+                                        2 => Dict{Symbol,  Vector{Float64}}( :zb => F_solution[2][:zb] .- (x_interior[:zb] .- ẑ[:zb]),
+                                                                    :zg => F_solution[2][:zg] .- (x_interior[:zg] .- ẑ[:zg]),
                                                                     :zl => F_solution[2][:zl] .- (x_interior[:zl] .- ẑ[:zl])
                                                                     ),
                                         3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
@@ -293,7 +292,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         optimizer_with_attributes(
             ()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
-            "Threads" => 1)
+            "Threads" => 0)
             )
 
 
@@ -336,7 +335,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         st = termination_status(model_oracle)
         if st != MOI.OPTIMAL
             @info "oracle is infeasible"
-            # break
+            break
         end
 
         f_star = JuMP.objective_value(model_oracle)
@@ -382,24 +381,24 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
         @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= level)
         @constraint(model_nxt, z1 .>= function_info.f_his[iter] + 
-                                        function_info.df[:zb]' * (xb - function_info.x_his[iter][:zb]) +
-                                        function_info.df[:zg]' * (xg - function_info.x_his[iter][:zg]) +
-                                        function_info.df[:zl]' * (xl - function_info.x_his[iter][:zl]) 
+                                        function_info.df[:zb]' * (xb .- function_info.x_his[iter][:zb]) +
+                                        function_info.df[:zg]' * (xg .- function_info.x_his[iter][:zg]) +
+                                        function_info.df[:zl]' * (xl .- function_info.x_his[iter][:zl]) 
                                         )
         @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + 
-                                                                      function_info.dG[k][:zb]' * (xb - function_info.x_his[iter][:zb])
-                                                                    + function_info.dG[k][:zg]' * (xg - function_info.x_his[iter][:zg]) 
-                                                                    + function_info.dG[k][:zl]' * (xl - function_info.x_his[iter][:zl])
+                                                                      sum(function_info.dG[k][:zb] .* (xb .- function_info.x_his[iter][:zb]))
+                                                                    + sum(function_info.dG[k][:zg] .* (xg .- function_info.x_his[iter][:zg]))
+                                                                    + sum(function_info.dG[k][:zl] .* (xl .- function_info.x_his[iter][:zl]))
                                                                     )
 
-        @objective(model_nxt, Min, (xb - function_info.x_his[iter][:zb])' * (xb - function_info.x_his[iter][:zb]) +
-                                    (xg - function_info.x_his[iter][:zg])' * (xg - function_info.x_his[iter][:zg])+
-                                    (xl - function_info.x_his[iter][:zl])' * (xl - function_info.x_his[iter][:zl])
+        @objective(model_nxt, Min, sum((xb .- function_info.x_his[iter][:zb]) .* (xb .- function_info.x_his[iter][:zb])) +
+                                   sum((xg .- function_info.x_his[iter][:zg]) .* (xg .- function_info.x_his[iter][:zg])) +
+                                   sum((xl .- function_info.x_his[iter][:zl]) .* (xl .- function_info.x_his[iter][:zl]))
                                     )
         optimize!(model_nxt)
         st = termination_status(model_nxt)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
-            x_nxt = Dict{Symbol, Vector}(:zb => JuMP.value.(xb) , 
+            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
                                             :zg => JuMP.value.(xg), 
                                             :zl => JuMP.value.(xl)
                                             )
@@ -415,7 +414,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         else
             set_normalized_rhs( level_constraint, w + 1 * (W - w))
             optimize!(model_nxt)
-            x_nxt = Dict{Symbol, Vector}(:zb => JuMP.value.(xb) , 
+            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
                                             :zg => JuMP.value.(xg), 
                                             :zl => JuMP.value.(xl)
                                             )
