@@ -12,7 +12,7 @@ include("runtests_small3.jl")  ## M = 4
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true; multi_cut = false
+max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
 
 
 function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}}, 
@@ -71,7 +71,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                             Ω_rv,
                                                             prob,
                                                             cut_collection;  ## the index is ω
-                                                            θ_bound = 0.0, multi_cut = multi_cut)
+                                                            θ_bound = 0.0)
             
             ## stage 2
             # first_stage_decision = Stage1_collection[k][1]
@@ -141,18 +141,18 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                         Ω_rv,
                                         prob,
                                         cut_collection;  ## the index is ω
-                                        θ_bound = 0.0, multi_cut = multi_cut
+                                        θ_bound = 0.0
                                         );
         LB = _LB[3];
         
-        t1 = now()
-        iter_time = (t1 - t0).value/1000
-        total_Time = (t1 - initial).value/1000
-        gap = round((OPT-LB)/OPT * 100 ,digits = 2)
-        gapString = string(gap,"%")
+        t1 = now();
+        iter_time = (t1 - t0).value/1000;
+        total_Time = (t1 - initial).value/1000;
+        gap = round((OPT-LB)/OPT * 100 ,digits = 2);
+        gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, 100-gap);
         
-        i = i + 1
+        i = i + 1;
         
         @info "iter num is $(i-1), LB is $LB, UB is $UB"
         if OPT-LB <= ϵ * OPT || i > max_iter

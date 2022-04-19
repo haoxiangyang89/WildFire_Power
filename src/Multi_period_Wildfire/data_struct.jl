@@ -64,17 +64,17 @@ struct RandomVariables
     vg   ::Dict{Int64, Int64}   
     vl   ::Dict{Tuple{Int64, Int64}, Int64} 
 
-    Ibb   ::Dict{Int64, Vector{Int64}}                                              ## the set of buses which is affected by a bus
-    Ibg   ::Dict{Int64, Vector{Int64}}                                              ## the set of generators which is affected by a bus
-    Ibl   ::Dict{Int64, Vector{Tuple{Int64, Int64}}}                               ## the set of lines which is affected by a bus
+    Ibb   ::Dict{Int64, Vector{Int64}}                                        ## the set of buses which is affected by a bus
+    Ibg   ::Dict{Int64, Vector{Int64}}                                        ## the set of generators which is affected by a bus
+    Ibl   ::Dict{Int64, Vector{Tuple{Int64, Int64}}}                          ## the set of lines which is affected by a bus
 
-    Igb   ::Dict{Int64, Vector{Int64}}                                              ## the set of buses which is affected by a generators
-    Igg   ::Dict{Int64, Vector{Int64}}                                              ## the set of generators which is affected by a generators
-    Igl   ::Dict{Int64, Vector{Tuple{Int64, Int64}}}                               ## the set of lines which is affected by a generators
+    Igb   ::Dict{Int64, Vector{Int64}}                                        ## the set of buses which is affected by a generators
+    Igg   ::Dict{Int64, Vector{Int64}}                                        ## the set of generators which is affected by a generators
+    Igl   ::Dict{Int64, Vector{Tuple{Int64, Int64}}}                          ## the set of lines which is affected by a generators
 
-    Ilb   ::Dict{Tuple{Int64, Int64}, Vector{Int64}}                               ## the set of buses which is affected by a line
-    Ilg   ::Dict{Tuple{Int64, Int64}, Vector{Int64}}                               ## the set of generators which is affected by a line
-    Ill   ::Dict{Tuple{Int64, Int64}, Vector{Tuple{Int64, Int64}}}                ## the set of lines which is affected by a line
+    Ilb   ::Dict{Tuple{Int64, Int64}, Vector{Int64}}                          ## the set of buses which is affected by a line
+    Ilg   ::Dict{Tuple{Int64, Int64}, Vector{Int64}}                          ## the set of generators which is affected by a line
+    Ill   ::Dict{Tuple{Int64, Int64}, Vector{Tuple{Int64, Int64}}}            ## the set of lines which is affected by a line
 end
 
 # Ω_rv = Dict{Int64,RandomVariables}()
