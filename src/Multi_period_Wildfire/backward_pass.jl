@@ -112,7 +112,7 @@ function backward_stage2_optimize!(indexSets::IndexSets,
 
 
     ## constraint 3e
-    @constraint(Q, [i in indexSets.B, t in randomVariables.τ:indexSets.T], sum(s[g, t] for g in indexSets.Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+    @constraint(Q, [i in indexSets.B, t in randomVariables.τ:indexSets.T], sum(s[g, t] for g in indexSets.Gᵢ[i]) + sum(P[(i, j), t] for j in indexSets.out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in indexSets.Dᵢ[i]) )
 
     ## constraint k l m 
     @constraint(Q, [i in indexSets.B], yb[i] <= zb[i] )
@@ -179,6 +179,8 @@ function backward_stage2_optimize!(indexSets::IndexSets,
             + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
             )
 
+
+    ####################################################### solve the model and display the result ###########################################################
     optimize!(Q)
     state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(zg)), 
                                                     :zb => round.(JuMP.value.(zb)), 
@@ -191,7 +193,7 @@ function backward_stage2_optimize!(indexSets::IndexSets,
                                                                         )
 
 
-    return [F, ∇F]
+    return (F = F, negative_∇F = ∇F)
 end
 
 
@@ -250,24 +252,24 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 )
 
         if Enhanced_Cut
-            function_value_info  = Dict(1 => - F_solution[1] - 
+            function_value_info  = Dict(1 => - F_solution.F - 
                                                 x₀[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
                                                 x₀[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
                                                 x₀[:zl]' * (x_interior[:zl] .- ẑ[:zl]),
 
-                                        2 => Dict{Symbol,  Vector{Float64}}( :zb => F_solution[2][:zb] .- (x_interior[:zb] .- ẑ[:zb]),
-                                                                    :zg => F_solution[2][:zg] .- (x_interior[:zg] .- ẑ[:zg]),
-                                                                    :zl => F_solution[2][:zl] .- (x_interior[:zl] .- ẑ[:zl])
+                                        2 => Dict{Symbol,  Vector{Float64}}( :zb => F_solution.negative_∇F[:zb] .- (x_interior[:zb] .- ẑ[:zb]),
+                                                                    :zg => F_solution.negative_∇F[:zg] .- (x_interior[:zg] .- ẑ[:zg]),
+                                                                    :zl => F_solution.negative_∇F[:zl] .- (x_interior[:zl] .- ẑ[:zl])
                                                                     ),
-                                        3 => Dict(1 => (1- ϵ) * f_star_value - F_solution[1]),
-                                        4 => Dict(1 => F_solution[2]),
+                                        3 => Dict(1 => (1- ϵ) * f_star_value - F_solution.F),
+                                        4 => Dict(1 => F_solution.negative_∇F),
                                         )
 
             # else
             #     function_value_info  = Dict(1 => - F_solution[1] - π' *  sum_generator,
-            #                                 2 => - F_solution[2] - sum_generator,
+            #                                 2 => - F_solution.negative_∇F - sum_generator,
             #                                 3 => Dict(1 => 0.0 ),
-            #                                 4 => Dict(1 => F_solution[2] * 0),
+            #                                 4 => Dict(1 => F_solution.negative_∇F * 0),
             #                                 )
         end
         return function_value_info
@@ -315,7 +317,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
     # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
     para_oracle_bound = abs(function_info.f_his[1])
-    z_rhs = 5.3 * 10^(ceil(log10(para_oracle_bound)))
+    z_rhs = 15 * 10^(ceil(log10(para_oracle_bound)))
     @constraint(model_oracle, oracle_bound, z >= - z_rhs)
 
     @objective(model_oracle, Min, z)

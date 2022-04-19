@@ -17,7 +17,7 @@ function forward_stage1_optimize!(indexSets::IndexSets,
                                     Ω_rv::Dict{Int64, RandomVariables},
                                     prob::Dict{Int64, Float64},
                                     cut_collection::Dict{Int64, CutCoefficient};  ## the index is ω
-                                    θ_bound::Real = 0.0)
+                                    θ_bound::Real = 0.0,  multi_cut::Bool = true)
 
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω) 
@@ -38,8 +38,6 @@ function forward_stage1_optimize!(indexSets::IndexSets,
     @variable(Q, zb[B, 1:T], Bin)      ## binary status indicator of bus i
     @variable(Q, zl[L, 1:T], Bin)      ## binary status indicator of line l
 
-    @variable(Q, θ[Ω] >= θ_bound)      ## sddp, estimated value function
-
     # constraint 3b 3c
     for l in L
       i = l[1]
@@ -59,42 +57,71 @@ function forward_stage1_optimize!(indexSets::IndexSets,
     @constraint(Q, [g in G, t in 1:T], s[g, t] >= paramOPF.smin[g] * zg[g, t] )
     @constraint(Q, [g in G, t in 1:T], s[g, t] <= paramOPF.smax[g] * zg[g, t] )
 
-    ## constraint g h i j
+    ## constraint 1g h i j
     @constraint(Q, [i in B, t in 1:T, d in Dᵢ[i]], zb[i, t] >= x[d, t] )
     @constraint(Q, [i in B, t in 1:T, g in Gᵢ[i]], zb[i, t] >= zg[g, t])
     @constraint(Q, [i in B, t in 1:T, j in out_L[i]], zb[i, t] >= zl[(i, j), t] )
     @constraint(Q, [i in B, t in 1:T, j in in_L[i]], zb[i, t] >= zl[(j, i), t] )
 
 
-    ## constraint k l m
+    ## constraint 1k l m
     @constraint(Q, [i in B, t in 1:T-1], zb[i, t] >= zb[i, t+1] )
     @constraint(Q, [g in G, t in 1:T-1], zg[g, t] >= zg[g, t+1] )
     @constraint(Q, [l in L, t in 1:T-1], zl[l, t] >= zl[l, t+1] )
 
 
-    # add cut for value functions
-    for ω in Ω
-      cut_coefficient = cut_collection[ω]
-      iter = length(keys(cut_coefficient.v))  ## iter num
-      k = length(keys(cut_coefficient.v[1]))  ## scenario num
+    # add cut for value functions & objective function
+    if multi_cut 
+      @variable(Q, θ[Ω] >= θ_bound)      ## sddp, estimated value function
 
-      @constraint(Q, [i in 1:iter-1, m in 1:k, ω in Ω], θ[ω] .>= cut_coefficient.v[i][m] + 
-                                                cut_coefficient.πb[i][m]' * zb[:, Ω_rv[ω].τ] +
-                                                cut_coefficient.πg[i][m]' * zg[:, Ω_rv[ω].τ] +
-                                                cut_coefficient.πl[i][m]' * zl[:, Ω_rv[ω].τ]
-                                                )
+      # add cut for value functions
+      for ω in Ω
+        cut_coefficient = cut_collection[ω]
+        iter = length(keys(cut_coefficient.v))  ## iter num
+        k = length(keys(cut_coefficient.v[1]))  ## scenario num
 
+        @constraint(Q, [i in 1:iter-1, m in 1:k, ω in Ω], θ[ω] .>= cut_coefficient.v[i][m] + 
+                                                  cut_coefficient.πb[i][m]' * zb[:, Ω_rv[ω].τ-1] +
+                                                  cut_coefficient.πg[i][m]' * zg[:, Ω_rv[ω].τ-1] +
+                                                  cut_coefficient.πl[i][m]' * zl[:, Ω_rv[ω].τ-1]
+                                                  )
+      end
+      
+      ## objective function
+      @objective(Q, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D )
+                                                                                    for t in 1:Ω_rv[ω].τ - 1 ) + θ[ω] )
+                                                                                      for ω in Ω)  
+                                                                                  )
+    else          
+        @variable(Q, θ >= θ_bound)      ## sddp, estimated value function
+
+        # add cut for value functions
+        for ω in Ω
+          cut_coefficient = cut_collection[ω]
+          iter = length(keys(cut_coefficient.v))  ## iter num
+          k = length(keys(cut_coefficient.v[1]))  ## scenario num
+
+          @constraint(Q, [i in 1:iter-1, m in 1:k, ω in Ω], θ .>= cut_coefficient.v[i][m] + 
+                                                    cut_coefficient.πb[i][m]' * zb[:, Ω_rv[ω].τ-1] +
+                                                    cut_coefficient.πg[i][m]' * zg[:, Ω_rv[ω].τ-1] +
+                                                    cut_coefficient.πl[i][m]' * zl[:, Ω_rv[ω].τ-1]
+                                                    )
+        end
+        # cut_coefficient.v[i][m] + 
+        #                                             cut_coefficient.πb[i][m]' * value.(zb[:, Ω_rv[ω].τ-1]) +
+        #                                             cut_coefficient.πg[i][m]' * value.(zg[:, Ω_rv[ω].τ-1]) +
+        #                                             cut_coefficient.πl[i][m]' * value.(zl[:, Ω_rv[ω].τ-1])
+
+
+
+        ## objective function
+        @objective(Q, Min, sum( prob[ω] * sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D )
+                                                                                      for t in 1:Ω_rv[ω].τ - 1 ) for ω in Ω)  
+                                                                                        + θ
+                                                                                    )
     end
 
-
-
-    
-    ## objective function
-    @objective(Q, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D )
-                                                                                  for t in 1:Ω_rv[ω].τ - 1 ) + θ[ω] )
-                                                                                    for ω in Ω)  
-                                                                                )
-
+    ####################################################### solve the model and display the result ###########################################################  
     optimize!(Q)
 
     state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
@@ -210,7 +237,7 @@ function forward_stage2_optimize!(indexSets::IndexSets,
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
             sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
             )
-
+    ####################################################### solve the model and display the result ###########################################################
     optimize!(Q)
     state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(yg)), :zb => round.(JuMP.value.(yb)), :zl => round.(JuMP.value.(yl)))
     state_value    = JuMP.objective_value(Q)

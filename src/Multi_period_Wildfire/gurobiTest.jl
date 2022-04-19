@@ -27,7 +27,7 @@ function gurobiOptimize!(indexSets::IndexSets,
 
     model = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
-                                          "Threads" => 1) 
+                                          "Threads" =>0) 
                                           )
     
     ## the first stage variables

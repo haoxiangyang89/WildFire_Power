@@ -12,7 +12,7 @@ include("runtests_small3.jl")  ## M = 4
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
+max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true; multi_cut = false
 
 
 function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}}, 
@@ -71,7 +71,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                             Ω_rv,
                                                             prob,
                                                             cut_collection;  ## the index is ω
-                                                            θ_bound = 0.0)
+                                                            θ_bound = 0.0, multi_cut = multi_cut)
             
             ## stage 2
             # first_stage_decision = Stage1_collection[k][1]
@@ -103,7 +103,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
             for ω in keys(Ω_rv)
                 # @info "$t $k $j"
                 ϵ_value = 1e-5 # 1e-5
-                λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
+                λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
                 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                 randomVariables = Ω_rv[ω]
                 ẑ = Dict(   :zg => Stage1_collection[k][1][:zg][:, randomVariables.τ - 1], 
@@ -118,6 +118,12 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                                     Enhanced_Cut = true
                                                                     )
                 # add cut
+                if i > 2 
+                    cut_collection[ω].v[i] = Dict{Int64, Float64}()
+                    cut_collection[ω].πb[i] = Dict{Int64, Vector{Float64}}()
+                    cut_collection[ω].πg[i] = Dict{Int64, Vector{Float64}}()
+                    cut_collection[ω].πl[i] = Dict{Int64, Vector{Float64}}()
+                end
                 cut_collection[ω].v[i][k] = coef[1]
                 cut_collection[ω].πb[i][k] = coef[2][:zb]
                 cut_collection[ω].πg[i][k] = coef[2][:zg]
@@ -135,9 +141,9 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                         Ω_rv,
                                         prob,
                                         cut_collection;  ## the index is ω
-                                        θ_bound = 0.0
-                                        )
-        LB = _LB[3]
+                                        θ_bound = 0.0, multi_cut = multi_cut
+                                        );
+        LB = _LB[3];
         
         t1 = now()
         iter_time = (t1 - t0).value/1000
@@ -145,7 +151,6 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         gap = round((OPT-LB)/OPT * 100 ,digits = 2)
         gapString = string(gap,"%")
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, 100-gap);
-        
         
         i = i + 1
         
