@@ -162,9 +162,10 @@ function gurobiOptimize!(indexSets::IndexSets,
                                     :zl => round.(JuMP.value.(yl))
                                     )
 
-    gurobiResult = Dict("OPT"=> JuMP.objective_value(model), "1st"=>  first_state_variable, "2nd"=>  second_state_variable )
 
-    return gurobiResult
+    return (OPT = JuMP.objective_value(model), 
+            first_state_variable = first_state_variable, 
+            second_state_variable = second_state_variable)
 end
 
 

@@ -24,14 +24,14 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                             Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
-    initial = now()
-    T = 2
+    initial = now();
+    T = 2;
     
-    i = 1
-    LB = - Inf 
-    UB = Inf
+    i = 1;
+    LB = - Inf;
+    UB = Inf;
     
-    cut_collection = Dict{Int64, CutCoefficient}()  # here, the index is ω
+    cut_collection = Dict{Int64, CutCoefficient}();  # here, the index is ω
 
     for ω in indexSets.Ω
 
@@ -40,20 +40,20 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                             Dict(1=> Dict(1=> zeros(Float64, length(indexSets.B))), 2 => Dict()),  ## πb
                                             Dict(1=> Dict(1=> zeros(Float64, length(indexSets.G))), 2 => Dict()),  ## πg
                                             Dict(1=> Dict(1=> zeros(Float64, length(indexSets.L))), 2 => Dict()),  ## πl
-                                          )
+                                          );
     end
 
-    col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time] # needs to be a vector Symbols
-    col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64]
-    named_tuple = (; zip(col_names, type[] for type in col_types )...)
-    sddipResult = DataFrame(named_tuple) # 0×7 DataFrame
-    gapList = []
+    col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
+    col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64];
+    named_tuple = (; zip(col_names, type[] for type in col_types )...);
+    sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
+    gapList = [];
     gurobiResult = gurobiOptimize!(indexSets, 
                                     paramDemand, 
                                     paramOPF, 
                                     Ω_rv,
-                                    prob)  
-    OPT = gurobiResult["OPT"]
+                                    prob);  
+    OPT = gurobiResult.OPT;
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
@@ -71,28 +71,28 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                             Ω_rv,
                                                             prob,
                                                             cut_collection;  ## the index is ω
-                                                            θ_bound = 0.0)
+                                                            θ_bound = 0.0);
             
             ## stage 2
-            # first_stage_decision = Stage1_collection[k][1]
+            # first_stage_decision = Stage1_collection[k].state_variable
             c = 0.0
             for ω in indexSets.Ω
-                randomVariables = Ω_rv[ω]
+                randomVariables = Ω_rv[ω];
 
-                ẑ = Dict(   :zg => Stage1_collection[k][1][:zg][:, randomVariables.τ - 1], 
-                            :zb => Stage1_collection[k][1][:zb][:, randomVariables.τ - 1], 
-                            :zl => Stage1_collection[k][1][:zl][:, randomVariables.τ - 1]
-                            )
+                ẑ = Dict(   :zg => Stage1_collection[k].state_variable[:zg][:, randomVariables.τ - 1], 
+                            :zb => Stage1_collection[k].state_variable[:zb][:, randomVariables.τ - 1], 
+                            :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
+                            );
 
                 Stage2_collection[ω, k] = forward_stage2_optimize!(indexSets, 
                                                                 paramDemand,
                                                                 paramOPF,
                                                                 ẑ,
                                                                 randomVariables                        ## realization of the random time
-                                                                )[2]
-                c = c + prob[ω] * Stage2_collection[ω, k]
+                                                                )[2];
+                c = c + prob[ω] * Stage2_collection[ω, k];
             end
-            u[k] = Stage1_collection[k][2] + c
+            u[k] = Stage1_collection[k].state_value + c;
         end
 
         ## compute the upper bound
@@ -143,7 +143,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                         cut_collection;  ## the index is ω
                                         θ_bound = 0.0
                                         );
-        LB = _LB[3];
+        LB = _LB.obj_value;
         
         t1 = now();
         iter_time = (t1 - t0).value/1000;
@@ -156,6 +156,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         
         @info "iter num is $(i-1), LB is $LB, UB is $UB"
         if OPT-LB <= ϵ * OPT || i > max_iter
+            println(_LB.state_variable[:zg])
+            println(gurobiResult.first_state_variable[:zg])
             return Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) 
         end
 

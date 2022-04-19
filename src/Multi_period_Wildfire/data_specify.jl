@@ -37,13 +37,13 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = 100. ## 0                ############# need to revise
+        cb[b] = 500. ## 0                ############# need to revise
     end
 
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = network_data["load"][i]["pd"] * 1e3                     ## priority level of load d
+        w[d] = network_data["load"][i]["pd"] * 1e5                     ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
@@ -62,7 +62,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
 
         smax[g] = network_data["gen"][i]["pmax"]
         smin[g] = network_data["gen"][i]["pmin"]
-        cg[g] = 50.                               ############# need to revis
+        cg[g] = 200.                               ############# need to revis
     end
 
 
@@ -75,7 +75,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
 
         _b[l] = network_data["branch"][i]["b_fr"]   ## total line charging susceptance
         W[l] = network_data["branch"][i]["rate_a"]              
-        cl[l] = 10.                                ############# need to revise
+        cl[l] = 50.                                ############# need to revise
     end
 
     paramOPF = ParamOPF(_b, θmax, θmin, W, smax, smin)

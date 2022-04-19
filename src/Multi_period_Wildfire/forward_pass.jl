@@ -98,7 +98,9 @@ function forward_stage1_optimize!(indexSets::IndexSets,
     state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
     state_value    = JuMP.objective_value(Q) - sum(prob[ω] * JuMP.value(θ[ω]) for ω in Ω)       ## 1a first term
 
-    return [state_variable, state_value, JuMP.objective_value(Q)]  ## returen [state_variable, first_stage value, objective_value(Q)]
+    return (state_variable = state_variable, 
+              state_value = state_value, 
+              obj_value = JuMP.objective_value(Q))  ## returen [state_variable, first_stage value, objective_value(Q)]
 end
 
 
