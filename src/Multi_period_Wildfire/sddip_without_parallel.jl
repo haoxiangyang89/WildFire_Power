@@ -7,21 +7,28 @@ include("data_struct.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
 include("gurobiTest.jl")
-include("runtests_small3.jl")  ## M = 4
+include("runtests_small.jl")  
 
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
-max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true
+
+max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true；
+
+λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
-function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}}, 
+
+
+function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables}, 
                             prob::Dict{Int64,Float64}, 
                             indexSets::IndexSets, 
                             paramDemand::ParamDemand, 
                             paramOPF::ParamOPF; 
+                            levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam,
                             ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-                            Enhanced_Cut::Bool = true, binaryInfo::BinaryInfo = binaryInfo)
+                            Enhanced_Cut::Bool = true)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     initial = now();
@@ -102,9 +109,6 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         for k in 1:M 
             for ω in keys(Ω_rv)
                 # @info "$t $k $j"
-                ϵ_value = 1e-5 # 1e-5
-                λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
-                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                 randomVariables = Ω_rv[ω]
                 ẑ = Dict(   :zg => Stage1_collection[k][1][:zg][:, randomVariables.τ - 1], 
                             :zb => Stage1_collection[k][1][:zb][:, randomVariables.τ - 1], 
@@ -118,7 +122,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
                                                                     Enhanced_Cut = true
                                                                     )
                 # add cut
-                if i > 2 
+                if i ≥ 3 
                     cut_collection[ω].v[i] = Dict{Int64, Float64}()
                     cut_collection[ω].πb[i] = Dict{Int64, Vector{Float64}}()
                     cut_collection[ω].πg[i] = Dict{Int64, Vector{Float64}}()
@@ -150,14 +154,14 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64,Dict{Int64,RandomVariables}},
         total_Time = (t1 - initial).value/1000;
         gap = round((OPT-LB)/OPT * 100 ,digits = 2);
         gapString = string(gap,"%");
-        push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, 100-gap);
+        push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
         
         i = i + 1;
         
-        @info "iter num is $(i-1), LB is $LB, UB is $UB"
+        @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
         if OPT-LB <= ϵ * OPT || i > max_iter
-            println(_LB.state_variable[:zg])
-            println(gurobiResult.first_state_variable[:zg])
+            # println(_LB.state_variable[:zg])
+            # println(gurobiResult.first_state_variable[:zg])
             return Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) 
         end
 
@@ -167,25 +171,7 @@ end
 
 
 
-using JLD2, FileIO, DataFrames
-result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
-cut_enhanced = copy(cut_collection)
 
-@save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
-# # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
-
-# result_LC = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
-# cut_LC = copy(cut_collection)
-
-# @save "runtests_small2_LC.jld2" result_LC cut_LC
-# # @load "runtests_small2_LC.jld2" result_LC cut_LC
-
-
-
-# using DataFrames
-# using Latexify
-# df = DataFrame(A = 'x':'z', B = ["M", "F", "F"])
-# latexify(df; env=:table, latex=false)
 
 
 
