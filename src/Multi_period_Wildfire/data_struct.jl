@@ -10,7 +10,7 @@ struct IndexSets
     Ω       :: Vector{Int64}                    ## r.v. index set
     Dᵢ      :: Dict{Int64,Vector{Int64}}       
     Gᵢ      :: Dict{Int64,Vector{Int64}}
-    out_L   :: Dict{Int64,Vector{Int64}}
+    out_L   :: Dict{Int64,Vector{Int64}} 
     in_L    :: Dict{Int64,Vector{Int64}}
 end
 

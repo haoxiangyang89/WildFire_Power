@@ -15,7 +15,7 @@ include("runtests_small.jl")
 
 max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true；
 
-λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+λ_value = .1; Output = 0; Output_Gap = true; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 

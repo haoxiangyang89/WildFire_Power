@@ -58,10 +58,12 @@ function forward_stage1_optimize!(indexSets::IndexSets,
     @constraint(Q, [g in G, t in 1:T], s[g, t] <= paramOPF.smax[g] * zg[g, t] )
 
     ## constraint 1g h i j
-    @constraint(Q, [i in B, t in 1:T, d in Dᵢ[i]], zb[i, t] >= x[d, t] )
-    @constraint(Q, [i in B, t in 1:T, g in Gᵢ[i]], zb[i, t] >= zg[g, t])
-    @constraint(Q, [i in B, t in 1:T, j in out_L[i]], zb[i, t] >= zl[(i, j), t] )
-    @constraint(Q, [i in B, t in 1:T, j in in_L[i]], zb[i, t] >= zl[(j, i), t] )
+    for i in B 
+      @constraint(Q, [t in 1:T, d in Dᵢ[i]], zb[i, t] >= x[d, t] )
+      @constraint(Q, [t in 1:T, g in Gᵢ[i]], zb[i, t] >= zg[g, t])
+      @constraint(Q, [t in 1:T, j in out_L[i]], zb[i, t] >= zl[(i, j), t] )
+      @constraint(Q, [t in 1:T, j in in_L[i]], zb[i, t] >= zl[(j, i), t] )
+    end
 
 
     ## constraint 1k l m

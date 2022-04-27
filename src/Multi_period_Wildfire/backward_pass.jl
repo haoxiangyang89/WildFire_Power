@@ -1,70 +1,4 @@
 #############################################################################################
-###########################  auxiliary functions for level set method #######################
-#############################################################################################
-
-"""
-This function is to constraint the model for solving gap and alpha
-"""
-
-function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter::Int64; Output::Int64 = 0)
-    
-    model_alpha = Model(
-        optimizer_with_attributes(
-            ()->Gurobi.Optimizer(GRB_ENV),
-            "OutputFlag" => Output, 
-            "Threads" => 0)
-            )
-
-    @variable(model_alpha, z)
-    @variable(model_alpha, 0 <= α <= 1)
-    @constraint(model_alpha, con[j = 1:iter], z <=  α * ( function_info.f_his[j] - f_star) + (1 - α) * function_info.G_max_his[j] )
-    
-    # we first compute gap Δ
-    @objective(model_alpha, Max, z)
-    optimize!(model_alpha)
-    st = termination_status(model_alpha)
-    Δ = JuMP.objective_value(model_alpha)
-
-    
-    ## then we modify above model to compute alpha
-    # alpha_min
-    @constraint(model_alpha, z .>= 0)
-    @objective(model_alpha, Min, α)
-    optimize!(model_alpha)
-    a_min = JuMP.value(α)
-
-    # alpha_max
-    @objective(model_alpha, Max, α)
-    optimize!(model_alpha)
-    a_max = JuMP.value(α)
-
-    return Dict(1 => Δ, 2 => a_min, 3 => a_max)
-
-end
-
-
-"""
-    This function is to add constraints for the model f_star and nxt pt.
-"""
-
-function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter::Int64)
-    m = length(function_info.G)
-
-    xⱼ = function_info.x_his[iter]
-    # add constraints     
-    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df[:zb]' * (model_info.xb .- xⱼ[:zb]) 
-                                                                    + function_info.df[:zg]' * (model_info.xg .- xⱼ[:zg] )
-                                                                    + function_info.df[:zl]' * (model_info.xl .- xⱼ[:zl] )
-                                                                    )
-
-    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + sum(function_info.dG[k][:zb] .* (model_info.xb .- xⱼ[:zb]))
-                                                                                 + sum(function_info.dG[k][:zg] .* (model_info.xg .- xⱼ[:zg]))
-                                                                                 + sum(function_info.dG[k][:zl] .* (model_info.xl .- xⱼ[:zl]))  
-                                                                                 ) 
-end
-
-
-#############################################################################################
 ###################################  function: backward pass ################################
 #############################################################################################
 
@@ -197,7 +131,76 @@ function backward_stage2_optimize!(indexSets::IndexSets,
 end
 
 
+#############################################################################################
+###########################  auxiliary functions for level set method #######################
+#############################################################################################
 
+"""
+    This function is to constraint the model for solving gap and alpha
+"""
+
+function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter::Int64; Output::Int64 = 0)
+    
+    model_alpha = Model(
+        optimizer_with_attributes(
+            ()->Gurobi.Optimizer(GRB_ENV),
+            "OutputFlag" => Output, 
+            "Threads" => 0)
+            )
+
+    @variable(model_alpha, z)
+    @variable(model_alpha, 0 <= α <= 1)
+    @constraint(model_alpha, con[j = 1:iter], z <=  α * ( function_info.f_his[j] - f_star) + (1 - α) * function_info.G_max_his[j] )
+    
+    # we first compute gap Δ
+    @objective(model_alpha, Max, z)
+    optimize!(model_alpha)
+    st = termination_status(model_alpha)
+    Δ = JuMP.objective_value(model_alpha)
+
+    
+    ## then we modify above model to compute alpha
+    # alpha_min
+    @constraint(model_alpha, z .>= 0)
+    @objective(model_alpha, Min, α)
+    optimize!(model_alpha)
+    a_min = JuMP.value(α)
+
+    # alpha_max
+    @objective(model_alpha, Max, α)
+    optimize!(model_alpha)
+    a_max = JuMP.value(α)
+
+    return Dict(1 => Δ, 2 => a_min, 3 => a_max)
+
+end
+
+
+"""
+    This function is to add constraints for the model f_star and nxt pt.
+"""
+
+function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter::Int64)
+    m = length(function_info.G)
+
+    xⱼ = function_info.x_his[iter]
+    # add constraints     
+    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df[:zb]' * (model_info.xb .- xⱼ[:zb]) 
+                                                                    + function_info.df[:zg]' * (model_info.xg .- xⱼ[:zg] )
+                                                                    + function_info.df[:zl]' * (model_info.xl .- xⱼ[:zl] )
+                                                                    )
+
+    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + sum(function_info.dG[k][:zb] .* (model_info.xb .- xⱼ[:zb]))
+                                                                                 + sum(function_info.dG[k][:zg] .* (model_info.xg .- xⱼ[:zg]))
+                                                                                 + sum(function_info.dG[k][:zl] .* (model_info.xl .- xⱼ[:zl]))  
+                                                                                 ) 
+end
+
+
+
+#############################################################################################
+#####################################  Main: Level Set Method ###############################
+#############################################################################################
 
 
 function LevelSetMethod_optimization!(  indexSets::IndexSets, 

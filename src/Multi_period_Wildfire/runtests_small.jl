@@ -86,7 +86,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
     ## construct random variables
     Ω_rv = Dict{Int64, RandomVariables}()
     for ω in 1:Ω 
-        τ = rand(2:5)
+        τ = rand(2:T)
 
         ub = Dict{Int64, Int64}()
         ug = Dict{Int64, Int64}()
