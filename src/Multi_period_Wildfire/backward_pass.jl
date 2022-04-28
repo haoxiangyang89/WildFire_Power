@@ -12,8 +12,8 @@ function backward_stage2_optimize!(indexSets::IndexSets,
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
-                                    randomVariables::RandomVariables,                          ## realization of the random time
-                                    π::Dict{Symbol, Vector{Float64}}
+                                    randomVariables::RandomVariables                          ## realization of the random time
+                                    # π::Dict{Symbol, Vector{Float64}}
                                     )
 
     # (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
@@ -104,30 +104,30 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     end
 
     ## objective function
-    @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
-            sum(paramDemand.cb[i] * νb[i] for i in indexSets.B) + 
-            sum(paramDemand.cg[g] * νg[g] for g in indexSets.G) + 
-            sum(paramDemand.cl[l] * νl[l] for l in indexSets.L) +
-            π[:zb]' * (ẑ[:zb] .- zb) + π[:zg]' * (ẑ[:zg] .- zg) + π[:zl]' * (ẑ[:zl] .- zl) 
-            + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
-            )
+    # @objective(Q, Min,  
+    #         sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+    #         sum(paramDemand.cb[i] * νb[i] for i in indexSets.B) + 
+    #         sum(paramDemand.cg[g] * νg[g] for g in indexSets.G) + 
+    #         sum(paramDemand.cl[l] * νl[l] for l in indexSets.L) +
+    #         π[:zb]' * (ẑ[:zb] .- zb) + π[:zg]' * (ẑ[:zg] .- zg) + π[:zl]' * (ẑ[:zl] .- zl) 
+    #         + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
+    #         )
 
 
-    ####################################################### solve the model and display the result ###########################################################
-    optimize!(Q)
-    state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(zg)), 
-                                                    :zb => round.(JuMP.value.(zb)), 
-                                                    :zl => round.(JuMP.value.(zl))
-                                                    )
-    F  = JuMP.objective_value(Q)
-    ∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ state_variable[:zb],
-                                                                        :zg => - ẑ[:zg] .+ state_variable[:zg],
-                                                                        :zl => - ẑ[:zl] .+ state_variable[:zl]
-                                                                        )
+    # ####################################################### solve the model and display the result ###########################################################
+    # optimize!(Q)
+    # state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(zg)), 
+    #                                                 :zb => round.(JuMP.value.(zb)), 
+    #                                                 :zl => round.(JuMP.value.(zl))
+    #                                                 )
+    # F  = JuMP.objective_value(Q)
+    # negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ state_variable[:zb],
+    #                                                                     :zg => - ẑ[:zg] .+ state_variable[:zg],
+    #                                                                     :zl => - ẑ[:zl] .+ state_variable[:zl]
+    #                                                                     )
 
-
-    return (F = F, negative_∇F = ∇F)
+    backwardInfo = BackwardInfo(Q, x, νb, νg, νl, zg, zb, zl, slack_variable_b, slack_variable_c)
+    return backwardInfo
 end
 
 
@@ -236,6 +236,13 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                         )
     f_star_value = f_star[2]
 
+    backwardInfo = backward_stage2_optimize!(indexSets, 
+                                    paramDemand, 
+                                    paramOPF, 
+                                    ẑ,
+                                    randomVariables                          ## realization of the random time
+                                    )
+
 
     ## collect the information from the objecive f, and constraints G
     function compute_f_G(   x₀::Dict{Symbol, Vector{Float64}}; 
@@ -243,17 +250,32 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
                             paramOPF::ParamOPF = paramOPF, randomVariables::RandomVariables = randomVariables, 
-                            ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}} = ẑ
+                            ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}} = ẑ, backwardInfo::BackwardInfo = backwardInfo
                             )
 
-        F_solution = backward_stage2_optimize!(indexSets, 
-                                                paramDemand, 
-                                                paramOPF, 
-                                                ẑ,
-                                                randomVariables,                          ## realization of the random time
-                                                x₀
-                                                )
+        # objective function
+        @objective(backwardInfo.Q, Min,  
+                sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+                sum(paramDemand.cb[i] * backwardInfo.νb[i] for i in indexSets.B) + 
+                sum(paramDemand.cg[g] * backwardInfo.νg[g] for g in indexSets.G) + 
+                sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) +
+                x₀[:zb]' * (ẑ[:zb] .- backwardInfo.zb) + x₀[:zg]' * (ẑ[:zg] .- backwardInfo.zg) + x₀[:zl]' * (ẑ[:zl] .- backwardInfo.zl) 
+                + paramDemand.penalty * backwardInfo.slack_variable_b - paramDemand.penalty * backwardInfo.slack_variable_c
+                )
 
+
+        ####################################################### solve the model and display the result ###########################################################
+        optimize!(backwardInfo.Q)
+        state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(backwardInfo.zg)), 
+                                                        :zb => round.(JuMP.value.(backwardInfo.zb)), 
+                                                        :zl => round.(JuMP.value.(backwardInfo.zl))
+                                                        )
+        F  = JuMP.objective_value(backwardInfo.Q)
+        negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ state_variable[:zb],
+                                                                            :zg => - ẑ[:zg] .+ state_variable[:zg],
+                                                                            :zl => - ẑ[:zl] .+ state_variable[:zl]
+                                                                            )
+        F_solution = (F = F, negative_∇F = negative_∇F)
         if Enhanced_Cut
             function_value_info  = Dict(1 => - F_solution.F - 
                                                 x₀[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 

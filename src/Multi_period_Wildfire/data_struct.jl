@@ -108,9 +108,6 @@ end
 
 
 
-
-
-
 struct LevelSetMethodParam
     μ             ::Float64   ## param for adjust α
     λ             ::Float64   ## param for adjust level
@@ -121,3 +118,35 @@ struct LevelSetMethodParam
     Output_Gap    ::Bool      ## if True will print Δ info
     Adj           ::Bool      ## whether adjust oracle lower bound
 end
+
+
+mutable struct BackwardInfo
+    Q               ::Model
+    x               ::JuMP.Containers.DenseAxisArray{VariableRef, 2, Tuple{Vector{Int64}, Base.OneTo{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}, JuMP.Containers._AxisLookup{Base.OneTo{Int64}}}}
+    νb              ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    νg              ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    νl              ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Tuple{Int64, Int64}}}, Tuple{JuMP.Containers._AxisLookup{Dict{Tuple{Int64, Int64}, Int64}}}}
+    zg              ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    zb              ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    zl              ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Tuple{Int64, Int64}}}, Tuple{JuMP.Containers._AxisLookup{Dict{Tuple{Int64, Int64}, Int64}}}}
+    slack_variable_b::VariableRef
+    slack_variable_c::VariableRef   
+end
+
+mutable struct ForwardInfo
+    model           ::Model
+    θ               ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    zg              ::JuMP.Containers.DenseAxisArray{VariableRef, 2, Tuple{Vector{Int64}, Base.OneTo{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}, JuMP.Containers._AxisLookup{Base.OneTo{Int64}}}}
+    zb              ::JuMP.Containers.DenseAxisArray{VariableRef, 2, Tuple{Vector{Int64}, Base.OneTo{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}, JuMP.Containers._AxisLookup{Base.OneTo{Int64}}}}
+    zl              ::JuMP.Containers.DenseAxisArray{VariableRef, 2, Tuple{Vector{Tuple{Int64, Int64}}, Base.OneTo{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Tuple{Int64, Int64}, Int64}}, JuMP.Containers._AxisLookup{Base.OneTo{Int64}}}}
+end
+
+mutable struct Forward2Info
+    model           :: Model
+    yb              :: JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    yg              :: JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    yl              :: JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Tuple{Int64, Int64}}}, Tuple{JuMP.Containers._AxisLookup{Dict{Tuple{Int64, Int64}, Int64}}}}
+    νb              :: JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    νg              :: JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
+    νl              :: JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Tuple{Int64, Int64}}}, Tuple{JuMP.Containers._AxisLookup{Dict{Tuple{Int64, Int64}, Int64}}}}
+  end
