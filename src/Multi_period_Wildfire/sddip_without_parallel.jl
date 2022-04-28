@@ -13,9 +13,9 @@ include("runtests_small.jl")
 ####################################    main function   #####################################
 #############################################################################################
 
-max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true；
+max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true;
 
-λ_value = .1; Output = 0; Output_Gap = true; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
@@ -82,7 +82,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         t0 = now()
         M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
         Stage1_collection = Dict();  # to store every iteration results
-        Stage2_collection = Dict();  # to store every iteration results
+        Stage2_collection = Dict{Int64, Float64}();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
 
         ## Forward Step
@@ -131,6 +131,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                 ####################################################### solve the model and display the result ###########################################################
                 optimize!(forward2Info_List[ω].model)
                 state_obj_value    = JuMP.objective_value(forward2Info_List[ω].model)
+                Stage2_collection[ω] = state_obj_value
                 c = c + prob[ω] * state_obj_value;
             end
             u[k] = Stage1_collection[k].state_value + c;
@@ -149,7 +150,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             :zl => Stage1_collection[k][1][:zl][:, randomVariables.τ - 1]
                             )
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
-                                                                    ẑ, randomVariables,                 
+                                                                    ẑ,  
+                                                                    randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
                                                                     ϵ = 1e-4, 
                                                                     interior_value = 0.5, 
@@ -171,7 +173,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         
         ########################################################################################################
         # add cut for value functions
-        for ω in Ω
+        for ω in indexSets.Ω
             cut_coefficient = cut_collection[ω]
             ωk = length(keys(cut_coefficient.v[1]))  ## scenario num
             τ = Ω_rv[ω].τ
@@ -191,11 +193,3 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     end
 
 end
-
-
-
-
-
-
-
-

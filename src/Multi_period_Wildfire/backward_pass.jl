@@ -206,7 +206,7 @@ end
 function LevelSetMethod_optimization!(  indexSets::IndexSets, 
                                         paramDemand::ParamDemand, 
                                         paramOPF::ParamOPF, 
-                                        ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
+                                        ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}, f_star_value::Float64,
                                         randomVariables::RandomVariables;                          ## realization of the random time
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                         ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true
@@ -227,14 +227,6 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     # l_interior= [.8 for i in 1:n] - .5 * sum_generator
     # @info "$l_interior"
     # l_interior= [interior_value for i in 1:n]
-
-    f_star = forward_stage2_optimize!(indexSets, 
-                                        paramDemand, 
-                                        paramOPF, 
-                                        ẑ,
-                                        randomVariables                       ## realization of the random time
-                                        )
-    f_star_value = f_star[2]
 
     backwardInfo = backward_stage2_optimize!(indexSets, 
                                     paramDemand, 
