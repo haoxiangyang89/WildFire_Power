@@ -151,7 +151,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             )
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
-                                                                    randomVariables,                 
+                                                                    Stage2_collection[ω], randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
                                                                     ϵ = 1e-4, 
                                                                     interior_value = 0.5, 
