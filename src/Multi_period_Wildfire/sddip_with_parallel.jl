@@ -17,7 +17,7 @@ include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/runtests_small.jl
 ####################################    main function   #####################################
 #############################################################################################
 
-@broadcast max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true; λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true; λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
 
@@ -122,7 +122,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
             state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(forwardInfo.zg)), 
                                                                                         :zb => round.(JuMP.value.(forwardInfo.zb)), 
                                                                                         :zl => round.(JuMP.value.(forwardInfo.zl)))
-            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in Ω)       ## 1a first term
+            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in indexSets.Ω)       ## 1a first term
  
             Stage1_collection[k] = (state_variable = state_variable, 
                                     state_value = state_value, 
@@ -173,18 +173,19 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         @passobj 1 workers() Stage1_collection
         for k in 1:M 
             p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...])
-            for ω in keys(Ω_rv)
+            for p_index in 1:length(keys(Ω_rv))
                 # add cut
+                ω = [keys(Ω_rv)...][p_index]
                 if i ≥ 3 
                     cut_collection[ω].v[i] = Dict{Int64, Float64}()
                     cut_collection[ω].πb[i] = Dict{Int64, Vector{Float64}}()
                     cut_collection[ω].πg[i] = Dict{Int64, Vector{Float64}}()
                     cut_collection[ω].πl[i] = Dict{Int64, Vector{Float64}}()
                 end
-                cut_collection[ω].v[i][k] = p[ω][1]
-                cut_collection[ω].πb[i][k] = p[ω][2][:zb]
-                cut_collection[ω].πg[i][k] = p[ω][2][:zg]
-                cut_collection[ω].πl[i][k] = p[ω][2][:zl]
+                cut_collection[ω].v[i][k] = p[p_index][1]
+                cut_collection[ω].πb[i][k] = p[p_index][2][:zb]
+                cut_collection[ω].πg[i][k] = p[p_index][2][:zg]
+                cut_collection[ω].πl[i][k] = p[p_index][2][:zl]
             end
         end
         

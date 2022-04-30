@@ -220,13 +220,17 @@ for ω in indexSets.Ω
 end
 
 
-@passobj 1 workers() indexSets; paramOPF; paramDemand; Ω_rv; prob
+@passobj 1 workers() indexSets
+@passobj 1 workers() paramOPF
+@passobj 1 workers() paramDemand
+@passobj 1 workers() Ω_rv
+@passobj 1 workers() prob
 
 
 
 #############################################################################################################
 @everywhere begin
-    max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true;
+    max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;
 
     λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)

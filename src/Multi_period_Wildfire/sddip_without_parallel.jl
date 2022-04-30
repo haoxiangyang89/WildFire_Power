@@ -85,14 +85,14 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         Stage2_collection = Dict{Int64, Float64}();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
 
-        ## Forward Step
+        ####################################################### Forwad Steps ###########################################################
         for k in 1:M
             ## stage 1
             optimize!(forwardInfo.model)
             state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(forwardInfo.zg)), 
                                                                                         :zb => round.(JuMP.value.(forwardInfo.zb)), 
                                                                                         :zl => round.(JuMP.value.(forwardInfo.zl)))
-            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in Ω)       ## 1a first term
+            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in indexSets.Ω)       ## 1a first term
  
             Stage1_collection[k] = (state_variable = state_variable, 
                                     state_value = state_value, 
@@ -110,6 +110,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                     return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
                 end
             end
+
+
             ## stage 2
             # first_stage_decision = Stage1_collection[k].state_variable
             c = 0.0
@@ -139,7 +141,11 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
 
         ## compute the upper bound
         UB = mean(u)
-        ##################################### Parallel Computation for backward step ###########################
+
+
+
+
+        ####################################################### Backward Steps ###########################################################
 
         for k in 1:M 
             for ω in keys(Ω_rv)
