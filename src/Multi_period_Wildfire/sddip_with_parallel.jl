@@ -17,7 +17,7 @@ include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/runtests_small.jl
 ####################################    main function   #####################################
 #############################################################################################
 
-@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;μ_value = .95; λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(μ_value, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;μ_value = .95; λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(μ_value, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
 

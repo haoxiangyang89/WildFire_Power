@@ -1,5 +1,5 @@
 function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64; 
-    prob_fault::NTuple{6, Float64} = (.1, .22, .09, .05, 0.3, 0.1))
+    prob_fault::NTuple{6, Float64} = (.2, .32, .09, .05, 0.3, 0.1))
     (pub, pug, pul, pvb, pvg, pvl) = prob_fault
 
     D = Vector{Int64}()
@@ -37,7 +37,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = 300. ## 0                ############# need to revise
+        cb[b] = 1500. ## 0                ############# need to revise
     end
 
     for i in keys(network_data["load"])
@@ -48,7 +48,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
-            demand = network_data["load"][i]["pd"] * (1 + .05 * t)
+            demand = network_data["load"][i]["pd"] * (1 + .2 * t)
             Demand[t][d] = demand
         end
     end
@@ -62,7 +62,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
 
         smax[g] = network_data["gen"][i]["pmax"]
         smin[g] = network_data["gen"][i]["pmin"]
-        cg[g] = 200.                               ############# need to revis
+        cg[g] = 1200.                               ############# need to revis
     end
 
 
@@ -75,7 +75,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
 
         _b[l] = network_data["branch"][i]["b_fr"]   ## total line charging susceptance
         W[l] = network_data["branch"][i]["rate_a"]              
-        cl[l] = 50.                                ############# need to revise
+        cl[l] = 500.                                ############# need to revise
     end
 
     paramOPF = ParamOPF(_b, θmax, θmin, W, smax, smin)
@@ -200,14 +200,14 @@ network_data = PowerModels.parse_file("/Users/aaron/matpower7.1/data/case30.m")
 
 
 ## construct _prepareIndexSets = prepareIndexSets(D, G, L, B ,3, [1,2,3,4])
-T = 5
-Ω = 4
-pub = .1
-pug = .1
-pul = .1
-pvb = .1
-pvg = .1
-pvl = .1
+T = 20
+Ω = 1000                                                           ## larger 
+pub = .15
+pug = .3
+pul = .12
+pvb = .15
+pvg = .12
+pvl = .21
 prob_fault = (pub, pug, pul, pvb, pvg, pvl) ## prob_faultility of u (v) on a bus (generator, line)
 # _prepareIndexSets = prepareIndexSets(network_data, T, Ω; prob_fault = prob_fault)
 
@@ -216,7 +216,7 @@ prob_fault = (pub, pug, pul, pvb, pvg, pvl) ## prob_faultility of u (v) on a bus
 
 prob = Dict{Int64, Float64}()
 for ω in indexSets.Ω 
-    prob[ω] = .25
+    prob[ω] = 1/Ω
 end
 
 
@@ -256,6 +256,8 @@ end
 # cut_enhanced = copy(cut_collection)
 
 # @save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
+
+
 
 # # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 
