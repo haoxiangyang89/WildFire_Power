@@ -172,7 +172,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         ##################################### Parallel Computation for backward step ###########################
         @passobj 1 workers() Stage1_collection
         for k in 1:M 
-            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...])
+            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...]; Enhanced_Cut = Enhanced_Cut)
             for p_index in 1:length(keys(Ω_rv))
                 # add cut
                 ω = [keys(Ω_rv)...][p_index]
