@@ -17,7 +17,7 @@ include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/runtests_small.jl
 ####################################    main function   #####################################
 #############################################################################################
 
-@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true; λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;μ_value = .95; λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(μ_value, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
 
@@ -100,9 +100,9 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
             c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ, f_star_value, randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = 1e-4, 
-                                                                    interior_value = 0.5, 
-                                                                    Enhanced_Cut = true
+                                                                    ϵ = ϵ, 
+                                                                    interior_value = interior_value, 
+                                                                    Enhanced_Cut = Enhanced_Cut
                                                                     )
             return c
         end

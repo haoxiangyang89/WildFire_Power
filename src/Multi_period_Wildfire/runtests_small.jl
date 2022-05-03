@@ -238,24 +238,27 @@ end
 
 
 
-resultDict = SDDiP_algorithm(Ω_rv, prob, 
-                    indexSets, 
-                    paramDemand, 
-                    paramOPF; 
-                    levelSetMethodParam = levelSetMethodParam,
-                    ϵ = 0.001, M = 1, max_iter = 200, 
-                    Enhanced_Cut = true)
+# resultDict = SDDiP_algorithm(Ω_rv, prob, 
+#                     indexSets, 
+#                     paramDemand, 
+#                     paramOPF; 
+#                     levelSetMethodParam = levelSetMethodParam,
+#                     ϵ = 0.001, M = 1, max_iter = 200, 
+#                     Enhanced_Cut = true)
 
 
 
 
 
 
-using JLD2, FileIO, DataFrames
-result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
-cut_enhanced = copy(cut_collection)
+# using JLD2, FileIO, DataFrames
+# result_enhanced = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
+# cut_enhanced = copy(cut_collection)
 
-@save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
+# @save "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
+
+
+
 # # @load "runtests_small2_enhanced.jld2" result_enhanced cut_enhanced
 
 # result_LC = copy(Dict(:solHistory => sddipResult, :solution => _LB, :gapHistory => gapList) )
