@@ -82,13 +82,13 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     ## an auxiliary function for backward iteration
 
     @everywhere begin 
-        function inner_func_backward(ω::Int64, f_star_value::Float64; 
+        function inner_func_backward(ω::Int64, f_star_value::Float64, Enhanced_Cut::Bool; 
                                     indexSets::IndexSets = indexSets, 
                                     Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
                                     paramDemand::ParamDemand = paramDemand, 
                                     paramOPF::ParamOPF = paramOPF, 
                                     levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                    ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true,
+                                    ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5,
                                     Stage1_collection::Dict{Any, Any} = Stage1_collection)
                                     
             randomVariables = Ω_rv[ω]
@@ -172,7 +172,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         ##################################### Parallel Computation for backward step ###########################
         @passobj 1 workers() Stage1_collection
         for k in 1:M 
-            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...]; Enhanced_Cut = Enhanced_Cut)
+            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...],  [Enhanced_Cut for i in keys(Ω_rv)])
             for p_index in 1:length(keys(Ω_rv))
                 # add cut
                 ω = [keys(Ω_rv)...][p_index]
