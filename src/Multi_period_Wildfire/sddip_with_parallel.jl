@@ -1,18 +1,30 @@
 using Distributed
 addprocs(4)
 
-@everywhere using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Distributions, ParallelDataTransfer, Random, DataFrames, Dates, PowerModels
-
-@everywhere const GRB_ENV = Gurobi.Env()
-
 @everywhere begin
-    include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/data_struct.jl")
-    include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/backward_pass.jl")
-    include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/forward_pass.jl")
-    include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/gurobiTest.jl")
+    using JuMP, Gurobi, PowerModels
+    using Statistics, StatsBase, Random, Dates
+    using Distributed, ParallelDataTransfer
+    using Distributions
+    using DataFrames
+
+    # using Agents, Distributions
+    # using CSV, Geodesy
+    # using InteractiveDynamics
+    # using CairoMakie
+    # using PowerModels
+
+
+    const GRB_ENV = Gurobi.Env()
+    
+    include("src/Multi_period_Wildfire/data_struct.jl")
+    include("src/Multi_period_Wildfire/backward_pass.jl")
+    include("src/Multi_period_Wildfire/forward_pass.jl")
+    include("src/Multi_period_Wildfire/gurobiTest.jl")
     # include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/runtests_small.jl")  
 end
-include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/runtests_small.jl")  
+# include("src/Multi_period_Wildfire/runtests_small.jl")  
+include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")  
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################

@@ -1,13 +1,23 @@
-using JuMP, Test, Statistics, StatsBase, Gurobi, Distributed, Distributions, ParallelDataTransfer, Random, DataFrames, Dates, PowerModels
+using JuMP, Gurobi, PowerModels
+using Statistics, StatsBase, Random, Dates
+using Distributed, ParallelDataTransfer
+using Agents
+using InteractiveDynamics
+using CairoMakie
+using Distributions
+using Geodesy
+using CSV, DataFrames
+
 
 const GRB_ENV = Gurobi.Env()
 
 
-include("data_struct.jl")
-include("backward_pass.jl")
-include("forward_pass.jl")
-include("gurobiTest.jl")
-include("runtests_small.jl")  
+include("src/Multi_period_Wildfire/data_struct.jl")
+include("src/Multi_period_Wildfire/backward_pass.jl")
+include("src/Multi_period_Wildfire/forward_pass.jl")
+include("src/Multi_period_Wildfire/gurobiTest.jl")
+# include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/wildfire_spread_simulation.jl")
+include("src/Multi_period_Wildfire/runtests_small.jl") 
 
 #############################################################################################
 ####################################    main function   #####################################

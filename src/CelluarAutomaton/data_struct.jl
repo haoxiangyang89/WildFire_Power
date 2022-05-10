@@ -10,25 +10,25 @@ mutable struct CellInfo <: AbstractAgent
     id::Int
     pos::NTuple{2, Int}
     # P₀          ::Float64   ## (0.58)the probability that a neighboring cell is burning and garment in the next step of the simulation under conditions of absence of fire and elevation difference between the central cell and neighboring
-    Pveg        ::Float64   ## Vegetation density (limited = -0.4, medium = 0, high = 0.3)
-    Pden        ::Float64   ## Kind of vegetation
+    Pveg        ::Float64   ## Vegetation density (empty = -1.0, limited/cultivated = -0.4, forests = 0.4, shrub = 0.4)
+    Pden        ::Float64   ## Kind of vegetation (empty = -1.0, sparse = -.3, normal = 0.0, dense = 0.3)
     E           ::Float64   ## elevation of the cell
     state       ::Int64     ## 0. The cell does not contain vegetable fuel and, therefore, it can not burn.
-                            # 1. It contains fuel (vegetation) that has not ignited.
-                            # 2. It contains burning vegetation.
-                            # 3. It contains vegetation that has burned completely
+                             # 1. It contains fuel (vegetation) that has not ignited.
+                             # 2. It contains burning vegetation.
+                             # 3. It contains vegetation that has burned completely
 end
 
 
 
 struct CellEnvironmentInfo
-    Pveg                ::Float64   ## Vegetation density (limited = -0.4, medium = 0.0, high = 0.3)
-    Pden                ::Float64   ## Kind of vegetation
-    E                   ::Float64   ## elevation of the cell
-    initial_state       ::Int64     ## 0. The cell does not contain vegetable fuel and, therefore, it can not burn.
-                                    # 1. It contains fuel (vegetation) that has not ignited.
-                                    # 2. It contains burning vegetation.
-                                    # 3. It contains vegetation that has burned completely
+    Pveg        ::Float64   ## Vegetation density (empty = -1.0, limited/cultivated = -0.4, forests = 0.4, shrub = 0.4)
+    Pden        ::Float64   ## Kind of vegetation (empty = -1.0, sparse = -.3, normal = 0.0, dense = 0.3)
+    E           ::Float64   ## elevation of the cell
+    state       ::Int64     ## 0. The cell does not contain vegetable fuel and, therefore, it can not burn.
+                             # 1. It contains fuel (vegetation) that has not ignited.
+                             # 2. It contains burning vegetation.
+                             # 3. It contains vegetation that has burned completely
 
 end
 
