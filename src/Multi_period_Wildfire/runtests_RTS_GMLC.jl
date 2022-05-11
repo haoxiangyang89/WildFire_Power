@@ -2,15 +2,15 @@
 include("src/Multi_period_Wildfire/wildfire_spread_simulation.jl")
 
 
-network_data = PowerModels.parse_file("data/RTS_GMLC/case_RTS_GMLC.m")
-businfo = CSV.read("data/RTS_GMLC/bus.csv", DataFrame)
-branchInfo = CSV.read("data/RTS_GMLC/branch.csv", DataFrame)
-WFPI_file = CSV.read("data/RTS_GMLC/RTS_GMLC_WFPI_with_Mean.csv", DataFrame)
-WFPI_Info = WFPI_file[:, [:From_Bus, :To_Bus, :Mean]]
+network_data = PowerModels.parse_file("data/RTS_GMLC/case_RTS_GMLC.m");
+businfo = CSV.read("data/RTS_GMLC/bus.csv", DataFrame);
+branchInfo = CSV.read("data/RTS_GMLC/branch.csv", DataFrame);
+WFPI_file = CSV.read("data/RTS_GMLC/RTS_GMLC_WFPI_with_Mean.csv", DataFrame);
+WFPI_Info = WFPI_file[:, [:From_Bus, :To_Bus, :Mean]];
 
-T = 20
-Ω = 5  ## Int
-(indexSets, paramOPF, paramDemand) = prepareIndexSets(network_data, T, Ω)
+T = 24;
+Ω = 4; ## Int
+(indexSets, paramOPF, paramDemand) = prepareIndexSets(network_data, T, Ω);
 
 
 
@@ -19,7 +19,7 @@ T = 20
                             line_id_location, 
                             line_id_bus,
                             bus_id_location, 
-                            bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info)
+                            bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info);
 
  
 
@@ -28,11 +28,11 @@ T = 20
 Ω_rv = prepareScenarios( ;period_span = 4, 
                                     T = T, 
                                     Ω = Ω, 
-                                    indexSets = indexSets, line_id_bus = line_id_bus, prob_fault = .15)
+                                    indexSets = indexSets, line_id_bus = line_id_bus, prob_fault = .15);
 
 
 
-prob = Dict{Int64, Float64}()
+prob = Dict{Int64, Float64}();
 for ω in indexSets.Ω 
     prob[ω] = 1/Ω
 end

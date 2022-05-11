@@ -16,8 +16,9 @@ include("src/Multi_period_Wildfire/data_struct.jl")
 include("src/Multi_period_Wildfire/backward_pass.jl")
 include("src/Multi_period_Wildfire/forward_pass.jl")
 include("src/Multi_period_Wildfire/gurobiTest.jl")
-# include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/wildfire_spread_simulation.jl")
-include("src/Multi_period_Wildfire/runtests_small.jl") 
+
+include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")
+# include("src/Multi_period_Wildfire/runtests_case30.jl") 
 
 #############################################################################################
 ####################################    main function   #####################################
@@ -25,7 +26,7 @@ include("src/Multi_period_Wildfire/runtests_small.jl")
 
 max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true;
 
-λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
@@ -152,9 +153,6 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         ## compute the upper bound
         UB = mean(u)
 
-
-
-
         ####################################################### Backward Steps ###########################################################
 
         for k in 1:M 
@@ -169,7 +167,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                                                     ẑ,  
                                                                     Stage2_collection[ω], randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = 1e-4, 
+                                                                    ϵ = 1e-3, 
                                                                     interior_value = 0.5, 
                                                                     Enhanced_Cut = true
                                                                     )
@@ -209,3 +207,15 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     end
 
 end
+
+
+λ_value = .5; Output = 0; Output_Gap = true; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
+                                                                    ẑ,  
+                                                                    Stage2_collection[ω], randomVariables,                 
+                                                                    levelSetMethodParam = levelSetMethodParam, 
+                                                                    ϵ = 1e-3, 
+                                                                    interior_value = 0.5, 
+                                                                    Enhanced_Cut = true
+                                                                    )

@@ -454,6 +454,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
     Ω_rv = Dict{Int64, RandomVariables}()
     Gᵢ = indexSets.Gᵢ
     B = indexSets.B
+    G = indexSets.G
     L = indexSets.L
     for ω in 1:Ω 
         τ = rand(2:T)
