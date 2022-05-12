@@ -21,9 +21,9 @@ addprocs(4)
     include("src/Multi_period_Wildfire/backward_pass.jl")
     include("src/Multi_period_Wildfire/forward_pass.jl")
     include("src/Multi_period_Wildfire/gurobiTest.jl")
-    # include("/Users/aaron/WildFire_Power/src/Multi_period_Wildfire/runtests_small.jl")  
 end
-# include("src/Multi_period_Wildfire/runtests_small.jl")  
+
+# include("src/Multi_period_Wildfire/runtests_case30.jl")  
 include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")  
 #############################################################################################
 ####################################    main function   #####################################
@@ -100,7 +100,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                     paramDemand::ParamDemand = paramDemand, 
                                     paramOPF::ParamOPF = paramOPF, 
                                     levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                    ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5,
+                                    ϵ::Float64 = 1e-3, interior_value::Float64 = 0.5,
                                     Stage1_collection::Dict{Any, Any} = Stage1_collection)
                                     
             randomVariables = Ω_rv[ω]

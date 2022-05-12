@@ -24,9 +24,9 @@ include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")
 ####################################    main function   #####################################
 #############################################################################################
 
-max_iter = 200; ϵ = 1e-2; Enhanced_Cut = true;
+max_iter = 2000; ϵ = 1e-4; 
 
-λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
 levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
 
 
@@ -159,17 +159,26 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
             for ω in keys(Ω_rv)
                 # @info "$t $k $j"
                 randomVariables = Ω_rv[ω]
-                ẑ = Dict(   :zg => Stage1_collection[k][1][:zg][:, randomVariables.τ - 1], 
-                            :zb => Stage1_collection[k][1][:zb][:, randomVariables.τ - 1], 
-                            :zl => Stage1_collection[k][1][:zl][:, randomVariables.τ - 1]
+                ẑ = Dict(   :zg => Stage1_collection[k].state_variable[:zg][:, randomVariables.τ - 1], 
+                            :zb => Stage1_collection[k].state_variable[:zb][:, randomVariables.τ - 1], 
+                            :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             )
+
+                if (OPT-LB)/LB <= 1e-2 
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e2; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+                else
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+                end
+
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
                                                                     Stage2_collection[ω], randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = 1e-3, 
+                                                                    ϵ = ϵ, 
                                                                     interior_value = 0.5, 
-                                                                    Enhanced_Cut = true
+                                                                    Enhanced_Cut = Enhanced_Cut
                                                                     )
                 # add cut
                 if i ≥ 3 
@@ -207,15 +216,3 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     end
 
 end
-
-
-λ_value = .5; Output = 0; Output_Gap = true; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
-levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
-                                                                    ẑ,  
-                                                                    Stage2_collection[ω], randomVariables,                 
-                                                                    levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = 1e-3, 
-                                                                    interior_value = 0.5, 
-                                                                    Enhanced_Cut = true
-                                                                    )

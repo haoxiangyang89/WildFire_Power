@@ -262,12 +262,12 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(backwardInfo.zg)), 
                                                             :zb => round.(JuMP.value.(backwardInfo.zb)), 
                                                             :zl => round.(JuMP.value.(backwardInfo.zl))
-                                                            )
-            F  = JuMP.objective_value(backwardInfo.Q)
+                                                            );
+            F  = JuMP.objective_value(backwardInfo.Q);
             negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ state_variable[:zb],
                                                                                 :zg => - ẑ[:zg] .+ state_variable[:zg],
                                                                                 :zl => - ẑ[:zl] .+ state_variable[:zl]
-                                                                                )
+                                                                                );
             F_solution = (F = F, negative_∇F = negative_∇F)
             function_value_info  = Dict(1 => - F_solution.F - 
                                                 x₀[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
@@ -279,45 +279,49 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                                             ),
                                         3 => Dict(1 => (1- ϵ) * f_star_value - F_solution.F),
                                         4 => Dict(1 => F_solution.negative_∇F),
-                                        )
+                                        );
 
-            else
-                # objective function
-                @objective(backwardInfo.Q, Min,  
-                        sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
-                        sum(paramDemand.cb[i] * backwardInfo.νb[i] for i in indexSets.B) + 
-                        sum(paramDemand.cg[g] * backwardInfo.νg[g] for g in indexSets.G) + 
-                        sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) -
-                        x₀[:zb]' * backwardInfo.zb - x₀[:zg]' * backwardInfo.zg - x₀[:zl]' * backwardInfo.zl
-                        + paramDemand.penalty * backwardInfo.slack_variable_b - paramDemand.penalty * backwardInfo.slack_variable_c
-                        )
+        else
+            # objective function
+            @objective(backwardInfo.Q, Min,  
+                    sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+                    sum(paramDemand.cb[i] * backwardInfo.νb[i] for i in indexSets.B) + 
+                    sum(paramDemand.cg[g] * backwardInfo.νg[g] for g in indexSets.G) + 
+                    sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) -
+                    x₀[:zb]' * backwardInfo.zb - x₀[:zg]' * backwardInfo.zg - x₀[:zl]' * backwardInfo.zl
+                    + paramDemand.penalty * backwardInfo.slack_variable_b - paramDemand.penalty * backwardInfo.slack_variable_c
+                    );
 
 
-                ####################################################### solve the model and display the result ###########################################################
-                optimize!(backwardInfo.Q)
-                state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(backwardInfo.zg)), 
-                                                                :zb => round.(JuMP.value.(backwardInfo.zb)), 
-                                                                :zl => round.(JuMP.value.(backwardInfo.zl))
-                                                                )
-                F  = JuMP.objective_value(backwardInfo.Q)
-                negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => state_variable[:zb],
-                                                                                    :zg => state_variable[:zg],
-                                                                                    :zl => state_variable[:zl]
-                                                                                    );
-                F_solution = (F = F, negative_∇F = negative_∇F)
-                function_value_info  = Dict(1 => - F_solution.F - 
-                                                        x₀[:zb]' * ẑ[:zb] - x₀[:zg]' * ẑ[:zg] - x₀[:zl]' * ẑ[:zl],
+            ####################################################### solve the model and display the result ###########################################################
+            optimize!(backwardInfo.Q)
+            state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(backwardInfo.zg)), 
+                                                            :zb => round.(JuMP.value.(backwardInfo.zb)), 
+                                                            :zl => round.(JuMP.value.(backwardInfo.zl))
+                                                            );
+            F  = JuMP.objective_value(backwardInfo.Q)
+            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => state_variable[:zb],
+                                                                                :zg => state_variable[:zg],
+                                                                                :zl => state_variable[:zl]
+                                                                                );
+            F_solution = (F = F, negative_∇F = negative_∇F)
+            function_value_info  = Dict(1 => - F_solution.F - 
+                                                        x₀[:zb]' * ẑ[:zb] - x₀[:zg]' * ẑ[:zg] - x₀[:zl]' * ẑ[:zl],  ## obj function
+
                                             2 =>Dict{Symbol, Vector{Float64}}(  :zb => F_solution.negative_∇F[:zb] .- ẑ[:zb],
                                                                                 :zg => F_solution.negative_∇F[:zg] .- ẑ[:zg],
                                                                                 :zl => F_solution.negative_∇F[:zl] .- ẑ[:zl]
-                                                                                ),
-                                            3 => Dict(1 => 0.0 ),
-                                            4 => Dict{Symbol, Vector{Float64}}( :zb => F_solution.negative_∇F[:zb] * 0.,
-                                                                                :zg => F_solution.negative_∇F[:zg] * 0.,
-                                                                                :zl => F_solution.negative_∇F[:zl] * 0.
-                                                                                ),
-                                            )
+                                                                                ),  ## obj gradient
+
+                                            3 => Dict(1 => 0.0 ), ## constraint value
+                                            4 => Dict{Int64, Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}}(1 => 
+                                                            Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}( :zb => F_solution.negative_∇F[:zb] * 0.,
+                                                                                                                        :zg => F_solution.negative_∇F[:zg] * 0.,
+                                                                                                                        :zl => F_solution.negative_∇F[:zl] * 0.
+                                                                                                                        )), ## constraint gradient
+                                            );
         end
+
         return function_value_info
         ## Com_f = function_value_info[1], Com_grad_f = function_value_info[2], 
         ## Com_G = function_value_info[3], Com_grad_G = function_value_info[4], Com_max_g = function_value_info[3]
@@ -415,8 +419,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         level = w + λ * (W - w)
 
         if Output_Gap == true
-            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), alpha is $α, w is $w, W is $W"
-            @info "Constraint is $(function_info.G_max_his[iter])"
+            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), Constraint is $(function_info.G_max_his[iter])"
         end
         
         ######################################################################################################################
