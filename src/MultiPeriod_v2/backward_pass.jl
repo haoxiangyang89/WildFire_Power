@@ -139,7 +139,7 @@ end
     This function is to constraint the model for solving gap and alpha
 """
 
-function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter::Int64; Output::Int64 = 0)
+function Δ_model_formulation(functionHistory::FunctionHistory, f_star::Float64, iter::Int64; Output::Int64 = 0)
     
     model_alpha = Model(
         optimizer_with_attributes(
@@ -150,7 +150,7 @@ function Δ_model_formulation(function_info::FunctionInfo, f_star::Float64, iter
 
     @variable(model_alpha, z)
     @variable(model_alpha, 0 <= α <= 1)
-    @constraint(model_alpha, con[j = 1:iter], z <=  α * ( function_info.f_his[j] - f_star) + (1 - α) * function_info.G_max_his[j] )
+    @constraint(model_alpha, con[j = 1:iter], z <=  α * ( functionHistory.f_his[j] - f_star) + (1 - α) * functionHistory.G_max_his[j] )
     
     # we first compute gap Δ
     @objective(model_alpha, Max, z)
@@ -180,19 +180,19 @@ end
     This function is to add constraints for the model f_star and nxt pt.
 """
 
-function add_constraint(function_info::FunctionInfo, model_info::ModelInfo, iter::Int64)
-    m = length(function_info.G)
+function add_constraint(currentInfo::CurrentInfo, model_info::ModelInfo)
+    m = length(currentInfo.G)
 
-    xⱼ = function_info.x_his[iter]
+    xⱼ = currentInfo.x
     # add constraints     
-    @constraint(model_info.model, model_info.z .>= function_info.f_his[iter] + function_info.df[:zb]' * (model_info.xb .- xⱼ[:zb]) 
-                                                                    + function_info.df[:zg]' * (model_info.xg .- xⱼ[:zg] )
-                                                                    + function_info.df[:zl]' * (model_info.xl .- xⱼ[:zl] )
+    @constraint(model_info.model, model_info.z .>= currentInfo.f + currentInfo.df[:zb]' * (model_info.xb .- xⱼ[:zb]) 
+                                                                    + currentInfo.df[:zg]' * (model_info.xg .- xⱼ[:zg] )
+                                                                    + currentInfo.df[:zl]' * (model_info.xl .- xⱼ[:zl] )
                                                                     )
 
-    @constraint(model_info.model, [k = 1:m], model_info.y .>= function_info.G[k] + sum(function_info.dG[k][:zb] .* (model_info.xb .- xⱼ[:zb]))
-                                                                                 + sum(function_info.dG[k][:zg] .* (model_info.xg .- xⱼ[:zg]))
-                                                                                 + sum(function_info.dG[k][:zl] .* (model_info.xl .- xⱼ[:zl]))  
+    @constraint(model_info.model, [k = 1:m], model_info.y .>= currentInfo.G[k] + sum(currentInfo.dG[k][:zb] .* (model_info.xb .- xⱼ[:zb]))
+                                                                                 + sum(currentInfo.dG[k][:zg] .* (model_info.xg .- xⱼ[:zg]))
+                                                                                 + sum(currentInfo.dG[k][:zl] .* (model_info.xl .- xⱼ[:zl]))  
                                                                                  ) 
 end
 
@@ -259,28 +259,25 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
             ####################################################### solve the model and display the result ###########################################################
             optimize!(backwardInfo.Q)
-            state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(backwardInfo.zg)), 
-                                                            :zb => round.(JuMP.value.(backwardInfo.zb)), 
-                                                            :zl => round.(JuMP.value.(backwardInfo.zl))
-                                                            );
+
             F  = JuMP.objective_value(backwardInfo.Q);
-            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ state_variable[:zb],
-                                                                                :zg => - ẑ[:zg] .+ state_variable[:zg],
-                                                                                :zl => - ẑ[:zl] .+ state_variable[:zl]
+            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ round.(JuMP.value.(backwardInfo.zb)),
+                                                                                :zg => - ẑ[:zg] .+ round.(JuMP.value.(backwardInfo.zg)),
+                                                                                :zl => - ẑ[:zl] .+ round.(JuMP.value.(backwardInfo.zl))
                                                                                 );
-            F_solution = (F = F, negative_∇F = negative_∇F)
-            function_value_info  = Dict(1 => - F_solution.F - 
+
+            currentInfo = CurrentInfo( x₀,                                                                 ## current point
+                                        - F - 
                                                 x₀[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
                                                 x₀[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
-                                                x₀[:zl]' * (x_interior[:zl] .- ẑ[:zl]),
-                                        2 => Dict{Symbol, Vector{Float64}}( :zb => F_solution.negative_∇F[:zb] .- (x_interior[:zb] .- ẑ[:zb]),
-                                                                            :zg => F_solution.negative_∇F[:zg] .- (x_interior[:zg] .- ẑ[:zg]),
-                                                                            :zl => F_solution.negative_∇F[:zl] .- (x_interior[:zl] .- ẑ[:zl])
-                                                                            ),
-                                        3 => Dict(1 => (1- ϵ) * f_star_value - F_solution.F),
-                                        4 => Dict(1 => F_solution.negative_∇F),
+                                                x₀[:zl]' * (x_interior[:zl] .- ẑ[:zl]),                     ## obj function value
+                                        Dict(1 => (1 - ϵ) * f_star_value - F),                              ## constraint value
+                                        Dict{Symbol, Vector{Float64}}(  :zb => negative_∇F[:zb] .- (x_interior[:zb] .- ẑ[:zb]),
+                                                                        :zg => negative_∇F[:zg] .- (x_interior[:zg] .- ẑ[:zg]),
+                                                                        :zl => negative_∇F[:zl] .- (x_interior[:zl] .- ẑ[:zl])
+                                                                        ),                                  ## obj gradient
+                                        Dict(1 => negative_∇F )                                             ## constraint gradient
                                         );
-
         else
             # objective function
             @objective(backwardInfo.Q, Min,  
@@ -295,38 +292,31 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
             ####################################################### solve the model and display the result ###########################################################
             optimize!(backwardInfo.Q)
-            state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(backwardInfo.zg)), 
-                                                            :zb => round.(JuMP.value.(backwardInfo.zb)), 
-                                                            :zl => round.(JuMP.value.(backwardInfo.zl))
-                                                            );
             F  = JuMP.objective_value(backwardInfo.Q)
-            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => state_variable[:zb],
-                                                                                :zg => state_variable[:zg],
-                                                                                :zl => state_variable[:zl]
+            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => round.(JuMP.value.(backwardInfo.zb)),
+                                                                                :zg => round.(JuMP.value.(backwardInfo.zg)),
+                                                                                :zl => round.(JuMP.value.(backwardInfo.zl))
                                                                                 );
-            F_solution = (F = F, negative_∇F = negative_∇F)
-            function_value_info  = Dict(1 => - F_solution.F - 
-                                                        x₀[:zb]' * ẑ[:zb] - x₀[:zg]' * ẑ[:zg] - x₀[:zl]' * ẑ[:zl],  ## obj function
 
-                                            2 =>Dict{Symbol, Vector{Float64}}(  :zb => F_solution.negative_∇F[:zb] .- ẑ[:zb],
-                                                                                :zg => F_solution.negative_∇F[:zg] .- ẑ[:zg],
-                                                                                :zl => F_solution.negative_∇F[:zl] .- ẑ[:zl]
-                                                                                ),  ## obj gradient
+            currentInfo = CurrentInfo( x₀,                                                                 ## current point
+                                        - F - x₀[:zb]' * ẑ[:zb] - x₀[:zg]' * ẑ[:zg] - x₀[:zl]' * ẑ[:zl],    ## obj function value
+                                        Dict(1 => 0.0 ), ## constraint value
+                                        Dict{Symbol, Vector{Float64}}(  :zb => negative_∇F[:zb] .- ẑ[:zb],
+                                                                        :zg => negative_∇F[:zg] .- ẑ[:zg],
+                                                                        :zl => negative_∇F[:zl] .- ẑ[:zl]
+                                                                        ),                                  ## obj gradient
+                                        Dict{Int64, Dict{Symbol, Vector{Float64}}}(1 => 
+                                        Dict{Symbol, Vector{Float64}}( :zb => zeros(size(B)),
+                                                                                                :zg => zeros(size(G)),
+                                                                                                :zl => zeros(size(L))
+                                                                                                ))          ## constraint gradient
+                                        )
 
-                                            3 => Dict(1 => 0.0 ), ## constraint value
-                                            4 => Dict{Int64, Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}}(1 => 
-                                                            Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}( :zb => F_solution.negative_∇F[:zb] * 0.,
-                                                                                                                        :zg => F_solution.negative_∇F[:zg] * 0.,
-                                                                                                                        :zl => F_solution.negative_∇F[:zl] * 0.
-                                                                                                                        )), ## constraint gradient
-                                            );
+            
+            
         end
-
-        return function_value_info
-        ## Com_f = function_value_info[1], Com_grad_f = function_value_info[2], 
-        ## Com_G = function_value_info[3], Com_grad_G = function_value_info[4], Com_max_g = function_value_info[3]
-    end
-
+        return currentInfo
+    end    
     ######################################################################################################################
     ##############################################   level set method   ##################################################
     ######################################################################################################################
@@ -339,14 +329,11 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     α = 1/2
 
     ## trajectory
-    function_value_info = compute_f_G(x₀; Enhanced_Cut = Enhanced_Cut)
-    function_info = FunctionInfo(   Dict(1 => x₀), 
-                                    function_value_info[3], 
-                                    Dict(1 => function_value_info[1]), 
-                                    function_value_info[2], 
-                                    function_value_info[4], ## Dict{Int64, Dict{Symbol, Vector}} and index is the components of dG (i == 1)
-                                    function_value_info[3]
-                                    )
+    currentInfo = compute_f_G(x₀; Enhanced_Cut = Enhanced_Cut)
+
+    functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
+                                        Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
+                                        )
 
     ## model for oracle
     model_oracle = Model(
@@ -364,9 +351,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     @variable(model_oracle, xl_oracle[L])
     @variable(model_oracle, y <= 0)
 
-    # para_oracle_bound =  abs(α * function_info.f_his[1] + (1-α) * function_info.G_max_his[1] )
-    # @variable(model_oracle, z >= - 10^(ceil(log10(-para_oracle_bound))))
-    para_oracle_bound = abs(function_info.f_his[1])
+    para_oracle_bound = abs(currentInfo.f)
     z_rhs = 15 * 10^(ceil(log10(para_oracle_bound)))
     @constraint(model_oracle, oracle_bound, z >= - z_rhs)
 
@@ -377,7 +362,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
     while true
         if Adj
-            param_z_rhs = abs(function_info.f_his[iter])
+            param_z_rhs = abs(currentInfo.f)
             if z_rhs <  1.5 * param_z_rhs
                 # @info "z level up $(z_rhs/param_z_rhs)"
                 z_rhs = 2 * z_rhs
@@ -390,7 +375,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             set_normalized_rhs(oracle_bound, - z_rhs)  
         end
 
-        add_constraint(function_info, oracle_info, iter)
+        add_constraint(currentInfo, oracle_info)
         optimize!(model_oracle)
 
         st = termination_status(model_oracle)
@@ -403,7 +388,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
         ## formulate alpha model
 
-        result = Δ_model_formulation(function_info, f_star, iter, Output = Output)
+        result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
         
         ## update α
@@ -415,11 +400,11 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
         ## update level
         w = α * f_star
-        W = minimum( α * function_info.f_his[j] + (1-α) * function_info.G_max_his[j] for j in 1:iter) 
+        W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter) 
         level = w + λ * (W - w)
 
         if Output_Gap == true
-            @info "Gap is $Δ, iter num is $iter, func_val is $( - function_value_info[1]), Constraint is $(function_info.G_max_his[iter])"
+            @info "Gap is $Δ, iter num is $iter, func_val is $( - currentInfo.f), Constraint is $(currentInfo.G)"
         end
         
         ######################################################################################################################
@@ -440,20 +425,20 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         @variable(model_nxt, y1)
 
         @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= level)
-        @constraint(model_nxt, z1 .>= function_info.f_his[iter] + 
-                                        function_info.df[:zb]' * (xb .- function_info.x_his[iter][:zb]) +
-                                        function_info.df[:zg]' * (xg .- function_info.x_his[iter][:zg]) +
-                                        function_info.df[:zl]' * (xl .- function_info.x_his[iter][:zl]) 
+        @constraint(model_nxt, z1 .>= currentInfo.f + 
+                                        currentInfo.df[:zb]' * (xb .- currentInfo.x[:zb]) +
+                                        currentInfo.df[:zg]' * (xg .- currentInfo.x[:zg]) +
+                                        currentInfo.df[:zl]' * (xl .- currentInfo.x[:zl]) 
                                         )
-        @constraint(model_nxt, [k in keys(function_info.G)], y1 .>= function_info.G[k] + 
-                                                                      sum(function_info.dG[k][:zb] .* (xb .- function_info.x_his[iter][:zb]))
-                                                                    + sum(function_info.dG[k][:zg] .* (xg .- function_info.x_his[iter][:zg]))
-                                                                    + sum(function_info.dG[k][:zl] .* (xl .- function_info.x_his[iter][:zl]))
+        @constraint(model_nxt, [k in keys(currentInfo.G)], y1 .>= currentInfo.G[k] + 
+                                                                      sum(currentInfo.dG[k][:zb] .* (xb .- currentInfo.x[:zb]))
+                                                                    + sum(currentInfo.dG[k][:zg] .* (xg .- currentInfo.x[:zg]))
+                                                                    + sum(currentInfo.dG[k][:zl] .* (xl .- currentInfo.x[:zl]))
                                                                     )
 
-        @objective(model_nxt, Min, sum((xb .- function_info.x_his[iter][:zb]) .* (xb .- function_info.x_his[iter][:zb])) +
-                                   sum((xg .- function_info.x_his[iter][:zg]) .* (xg .- function_info.x_his[iter][:zg])) +
-                                   sum((xl .- function_info.x_his[iter][:zl]) .* (xl .- function_info.x_his[iter][:zl]))
+        @objective(model_nxt, Min, sum((xb .- currentInfo.x[:zb]) .* (xb .- currentInfo.x[:zb])) +
+                                   sum((xg .- currentInfo.x[:zg]) .* (xg .- currentInfo.x[:zg])) +
+                                   sum((xl .- currentInfo.x[:zl]) .* (xl .- currentInfo.x[:zl]))
                                     )
         optimize!(model_nxt)
         st = termination_status(model_nxt)
@@ -464,13 +449,13 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             )
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
             if Enhanced_Cut
-                return [ - function_info.f_his[iter] - function_info.x_his[iter][:zb]' * x_interior[:zb] - 
-                                                        function_info.x_his[iter][:zg]' * x_interior[:zg] - 
-                                                        function_info.x_his[iter][:zl]' * x_interior[:zl],  function_info.x_his[iter]] 
+                return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
+                                                        currentInfo.x[:zg]' * x_interior[:zg] - 
+                                                        currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
             else
-                return [ - function_info.f_his[iter] - function_info.x_his[iter][:zb]' * ẑ[:zb] - 
-                                                function_info.x_his[iter][:zg]' * ẑ[:zg] - 
-                                                function_info.x_his[iter][:zl]' * ẑ[:zl],  function_info.x_his[iter]] 
+                return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+                                                currentInfo.x[:zg]' * ẑ[:zg] - 
+                                                currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
             end
         else
             set_normalized_rhs( level_constraint, w + 1 * (W - w))
@@ -485,13 +470,13 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         ## stop rule
         if Δ < threshold || iter > max_iter 
             if Enhanced_Cut
-                return [ - function_info.f_his[iter] - function_info.x_his[iter][:zb]' * x_interior[:zb] - 
-                                                        function_info.x_his[iter][:zg]' * x_interior[:zg] - 
-                                                        function_info.x_his[iter][:zl]' * x_interior[:zl],  function_info.x_his[iter]] 
+                return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
+                                                        currentInfo.x[:zg]' * x_interior[:zg] - 
+                                                        currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
             else
-                return [ - function_info.f_his[iter] - function_info.x_his[iter][:zb]' * ẑ[:zb] - 
-                                                function_info.x_his[iter][:zg]' * ẑ[:zg] - 
-                                                function_info.x_his[iter][:zl]' * ẑ[:zl],  function_info.x_his[iter]] 
+                return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+                                                currentInfo.x[:zg]' * ẑ[:zg] - 
+                                                currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
             end
         end
         ######################################################################################################################
@@ -499,15 +484,11 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         ######################################################################################################################
 
         ## save the trajectory
-        function_value_info = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
+        currentInfo = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
         iter = iter + 1
-        function_info.x_his[iter]     = x_nxt
-        function_info.G_max_his[iter] = function_value_info[3][1]
-        function_info.f_his[iter]     = function_value_info[1]
-        function_info.df              = function_value_info[2]
-        function_info.dG              = function_value_info[4]
-        function_info.G               = function_value_info[3]
-
+        
+        functionHistory.f_his[iter] = currentInfo.f
+        functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G))
     end
 
 end

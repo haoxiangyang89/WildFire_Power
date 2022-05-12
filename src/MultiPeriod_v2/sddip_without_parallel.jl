@@ -12,24 +12,19 @@ using CSV, DataFrames
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/Multi_period_Wildfire/data_struct.jl")
-include("src/Multi_period_Wildfire/backward_pass.jl")
-include("src/Multi_period_Wildfire/forward_pass.jl")
-include("src/Multi_period_Wildfire/gurobiTest.jl")
+include("src/Multi_period_Wildfire_Version2/data_struct.jl")
+include("src/Multi_period_Wildfire_Version2/backward_pass.jl")
+include("src/Multi_period_Wildfire_Version2/forward_pass.jl")
+include("src/Multi_period_Wildfire_Version2/gurobiTest.jl")
 
-include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")
-# include("src/Multi_period_Wildfire/runtests_case30.jl") 
+include("src/Multi_period_Wildfire_Version2/runtests_RTS_GMLC.jl")
+# include("src/Multi_period_Wildfire_Version2/runtests_case30.jl") 
 
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
 
 max_iter = 2000; ϵ = 1e-4; 
-
-λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
-levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-
-
 
 
 function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables}, 
@@ -42,13 +37,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             Enhanced_Cut::Bool = true)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
-    initial = now();
-    T = 2;
-    
-    i = 1;
-    LB = - Inf;
-    UB = Inf;
-    
+    initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
     cut_collection = Dict{Int64, CutCoefficient}();  # here, the index is ω
 
     for ω in indexSets.Ω
@@ -88,6 +77,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                                     Ω_rv[ω]                        ## realization of the random time
                                                     )
     end 
+
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
@@ -115,7 +105,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                 push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
 
                 @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
-                if OPT-LB <= ϵ * OPT || i > max_iter
+                if OPT-LB <= 4e-4 * OPT || i > max_iter
                     # println(Stage1_collection[k].state_variable[:zg])
                     # println(gurobiResult.first_state_variable[:zg])
                     return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
@@ -164,7 +154,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             )
 
-                if (OPT-LB)/LB <= 1e-2 
+                if (OPT-LB)/LB <= 1e-3 
                     λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e2; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
                 else

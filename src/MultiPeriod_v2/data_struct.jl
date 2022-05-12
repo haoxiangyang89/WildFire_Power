@@ -84,13 +84,17 @@ end
 
 
 ## data structure for levelset method
-mutable struct FunctionInfo
-    x_his        :: Dict{Int64, Dict{Symbol, Vector{Float64}}}  ## record every x_j point
-    G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)
-    f_his        :: Dict{Int64, Float64}          ## record f(x_j)
+mutable struct FunctionHistory
+    f_his        :: Dict{Int64, Float64}          ## record f(x_j)     
+    G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)   
+end
+
+mutable struct CurrentInfo
+    x            :: Dict{Symbol, Vector{Float64}}  ## record x point
+    f            :: Float64                        ## record f(x_j)
+    G            :: Dict{Int64, Float64} 
     df           :: Dict{Symbol, Vector{Float64}}
-    dG           :: Dict{Int64, Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}}  ## actually is a matrix.  But we use dict to store it
-    G            :: Dict{Int64, Float64}          
+    dG           :: Dict{Int64, Dict{Symbol, Any}}  ## actually is a matrix.  But we use dict to store it
 end
 
 

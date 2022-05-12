@@ -12,13 +12,13 @@ using CSV, DataFrames
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/Multi_period_Wildfire/data_struct.jl")
-include("src/Multi_period_Wildfire/backward_pass.jl")
-include("src/Multi_period_Wildfire/forward_pass.jl")
-include("src/Multi_period_Wildfire/gurobiTest.jl")
+include("src/Multi_period_Wildfire_Version1/data_struct.jl")
+include("src/Multi_period_Wildfire_Version1/backward_pass.jl")
+include("src/Multi_period_Wildfire_Version1/forward_pass.jl")
+include("src/Multi_period_Wildfire_Version1/gurobiTest.jl")
 
-include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")
-# include("src/Multi_period_Wildfire/runtests_case30.jl") 
+include("src/Multi_period_Wildfire_Version1/runtests_RTS_GMLC.jl")
+# include("src/Multi_period_Wildfire_Version1/runtests_case30.jl") 
 
 #############################################################################################
 ####################################    main function   #####################################
