@@ -311,29 +311,34 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                                                                 :zl => zeros(size(L))
                                                                                                 ))          ## constraint gradient
                                         )
-
-            
-            
         end
         return currentInfo
     end    
     ######################################################################################################################
     ##############################################   level set method   ##################################################
     ######################################################################################################################
-    
-    x₀ = Dict{Symbol, Vector{Float64}}(      :zb => [1. for i in 1:length(B)], 
-                                    :zg => [1. for i in 1:length(G)], 
-                                    :zl => [1. for i in 1:length(L)]
-                                    )
+    if Enhanced_Cut
+        x₀ = Dict{Symbol, Vector{Float64}}(      :zb => ẑ[:zb] * 2 * f_star_value .- f_star_value, 
+                                        :zg => ẑ[:zg] * 2 * f_star_value .- f_star_value, 
+                                        :zl => ẑ[:zl] * 2 * f_star_value .- f_star_value
+                                        )
+    else
+        x₀ = Dict{Symbol, Vector{Float64}}(      :zb => ẑ[:zb] * 0, 
+                                        :zg => ẑ[:zg] * 0, 
+                                        :zl => ẑ[:zl] * 0
+                                        )
+    end
+    # x₀ = LevelSetMethod_InitialPoint()[2]
+                                    
     iter = 1
     α = 1/2
 
     ## trajectory
-    currentInfo = compute_f_G(x₀; Enhanced_Cut = Enhanced_Cut)
+    currentInfo = compute_f_G(x₀; Enhanced_Cut = Enhanced_Cut);
 
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
                                         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
-                                        )
+                                        );
 
     ## model for oracle
     model_oracle = Model(
@@ -341,22 +346,22 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             ()->Gurobi.Optimizer(GRB_ENV), 
             "OutputFlag" => Output, 
             "Threads" => 0)
-            )
+            );
 
 
 
-    @variable(model_oracle, z)
-    @variable(model_oracle, xb_oracle[B])
-    @variable(model_oracle, xg_oracle[G])
-    @variable(model_oracle, xl_oracle[L])
-    @variable(model_oracle, y <= 0)
+    @variable(model_oracle, z);
+    @variable(model_oracle, xb_oracle[B]);
+    @variable(model_oracle, xg_oracle[G]);
+    @variable(model_oracle, xl_oracle[L]);
+    @variable(model_oracle, y <= 0);
 
-    para_oracle_bound = abs(currentInfo.f)
-    z_rhs = 15 * 10^(ceil(log10(para_oracle_bound)))
-    @constraint(model_oracle, oracle_bound, z >= - z_rhs)
+    para_oracle_bound = abs(currentInfo.f);
+    z_rhs = 15 * 10^(ceil(log10(para_oracle_bound)));
+    @constraint(model_oracle, oracle_bound, z >= - z_rhs);
 
-    @objective(model_oracle, Min, z)
-    oracle_info = ModelInfo(model_oracle, xb_oracle, xg_oracle, xl_oracle, y, z)
+    @objective(model_oracle, Min, z);
+    oracle_info = ModelInfo(model_oracle, xb_oracle, xg_oracle, xl_oracle, y, z);
 
 
 
@@ -493,3 +498,234 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
 end
 
+
+
+
+
+
+## ============================================= Design for solve Lagrangian cut ================================================= ##
+
+# function LevelSetMethod_InitialPoint(  ;indexSets::IndexSets = indexSets, 
+#                                         paramDemand::ParamDemand = paramDemand, 
+#                                         paramOPF::ParamOPF = paramOPF, 
+#                                         ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}} = ẑ, f_star_value::Float64 = f_star_value,
+#                                         randomVariables::RandomVariables = randomVariables,                          ## realization of the random time
+#                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam
+#                                         )
+
+#     ######################################################################################################################
+#     ###############################   auxiliary function for function information   ######################################
+#     ######################################################################################################################
+#     ##  μ larger is better
+#     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
+#     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
+#     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
+
+#     x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
+#                                                 :zg => [interior_value for i in 1:length(G)], 
+#                                                 :zl => [interior_value for i in 1:length(L)]
+#                                                 )
+#     # l_interior= [.8 for i in 1:n] - .5 * sum_generator
+#     # @info "$l_interior"
+#     # l_interior= [interior_value for i in 1:n]
+
+#     backwardInfo = backward_stage2_optimize!(indexSets, 
+#                                     paramDemand, 
+#                                     paramOPF, 
+#                                     ẑ,
+#                                     randomVariables                          ## realization of the random time
+#                                     )
+
+
+#     ## collect the information from the objecive f, and constraints G
+#     function compute_f_G(   x₀::Dict{Symbol, Vector{Float64}}; 
+#                             indexSets::IndexSets = indexSets, 
+#                             paramDemand::ParamDemand = paramDemand, 
+#                             paramOPF::ParamOPF = paramOPF, randomVariables::RandomVariables = randomVariables, 
+#                             ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}} = ẑ, backwardInfo::BackwardInfo = backwardInfo
+#                             )
+
+#         @objective(backwardInfo.Q, Min,  
+#                 sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+#                 sum(paramDemand.cb[i] * backwardInfo.νb[i] for i in indexSets.B) + 
+#                 sum(paramDemand.cg[g] * backwardInfo.νg[g] for g in indexSets.G) + 
+#                 sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) -
+#                 x₀[:zb]' * backwardInfo.zb - x₀[:zg]' * backwardInfo.zg - x₀[:zl]' * backwardInfo.zl
+#                 + paramDemand.penalty * backwardInfo.slack_variable_b - paramDemand.penalty * backwardInfo.slack_variable_c
+#                 );
+
+
+#         ####################################################### solve the model and display the result ###########################################################
+#         optimize!(backwardInfo.Q)
+#         F  = JuMP.objective_value(backwardInfo.Q)
+#         negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => round.(JuMP.value.(backwardInfo.zb)),
+#                                                                             :zg => round.(JuMP.value.(backwardInfo.zg)),
+#                                                                             :zl => round.(JuMP.value.(backwardInfo.zl))
+#                                                                             );
+
+#         currentInfo = CurrentInfo( x₀,                                                                 ## current point
+#                                     - F - x₀[:zb]' * ẑ[:zb] - x₀[:zg]' * ẑ[:zg] - x₀[:zl]' * ẑ[:zl],    ## obj function value
+#                                     Dict(1 => 0.0 ), ## constraint value
+#                                     Dict{Symbol, Vector{Float64}}(  :zb => negative_∇F[:zb] .- ẑ[:zb],
+#                                                                     :zg => negative_∇F[:zg] .- ẑ[:zg],
+#                                                                     :zl => negative_∇F[:zl] .- ẑ[:zl]
+#                                                                     ),                                  ## obj gradient
+#                                     Dict{Int64, Dict{Symbol, Vector{Float64}}}(1 => 
+#                                     Dict{Symbol, Vector{Float64}}( :zb => zeros(size(B)),
+#                                                                                             :zg => zeros(size(G)),
+#                                                                                             :zl => zeros(size(L))
+#                                                                                             ))          ## constraint gradient
+#                                     )
+        
+#         return currentInfo
+#     end    
+#     ######################################################################################################################
+#     ##############################################   level set method   ##################################################
+#     ######################################################################################################################
+
+#     x₀ = Dict{Symbol, Vector{Float64}}(      :zb => ẑ[:zb] * 0, 
+#                                     :zg => ẑ[:zg] * 0, 
+#                                     :zl => ẑ[:zl] * 0
+#                                     )
+                                    
+#     iter = 1
+#     α = 1/2
+
+#     ## trajectory
+#     currentInfo = compute_f_G(x₀);
+
+#     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
+#                                         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
+#                                         );
+
+#     ## model for oracle
+#     model_oracle = Model(
+#         optimizer_with_attributes(
+#             ()->Gurobi.Optimizer(GRB_ENV), 
+#             "OutputFlag" => Output, 
+#             "Threads" => 0)
+#             );
+
+
+
+#     @variable(model_oracle, z);
+#     @variable(model_oracle, xb_oracle[B]);
+#     @variable(model_oracle, xg_oracle[G]);
+#     @variable(model_oracle, xl_oracle[L]);
+#     @variable(model_oracle, y <= 0);
+
+#     para_oracle_bound = abs(currentInfo.f);
+#     z_rhs = 15 * 10^(ceil(log10(para_oracle_bound)));
+#     @constraint(model_oracle, oracle_bound, z >= - z_rhs);
+
+#     @objective(model_oracle, Min, z);
+#     oracle_info = ModelInfo(model_oracle, xb_oracle, xg_oracle, xl_oracle, y, z);
+
+
+
+#     while true
+#         add_constraint(currentInfo, oracle_info)
+#         optimize!(model_oracle)
+
+#         st = termination_status(model_oracle)
+#         if st != MOI.OPTIMAL
+#             @info "oracle is infeasible"
+#             break
+#         end
+
+#         f_star = JuMP.objective_value(model_oracle)
+
+#         ## formulate alpha model
+
+#         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output)
+#         Δ, a_min, a_max = result[1], result[2], result[3]
+        
+#         ## update α
+#         if μ/2 <= (α-a_min)/(a_max-a_min) .<= 1-μ/2
+#             α = α
+#         else
+#             α = (a_min+a_max)/2
+#         end
+
+#         ## update level
+#         w = α * f_star
+#         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter) 
+#         level = w + λ * (W - w)
+
+#         if Output_Gap == true
+#             @info "Gap is $Δ, iter num is $iter, func_val is $( - currentInfo.f), Constraint is $(currentInfo.G)"
+#         end
+        
+#         ######################################################################################################################
+#         #########################################     next iteration point   #################################################
+#         ######################################################################################################################
+
+#         ## obtain the next iteration point
+#         model_nxt = Model(
+#             optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
+#             "OutputFlag" => Output, 
+#             "Threads" => 0)
+#             )
+
+#         @variable(model_nxt, xb[B])
+#         @variable(model_nxt, xg[G])
+#         @variable(model_nxt, xl[L])
+#         @variable(model_nxt, z1 >= - nxt_bound)
+#         @variable(model_nxt, y1)
+
+#         @constraint(model_nxt, level_constraint, α * z1 + (1 - α) * y1 <= level)
+#         @constraint(model_nxt, z1 .>= currentInfo.f + 
+#                                         currentInfo.df[:zb]' * (xb .- currentInfo.x[:zb]) +
+#                                         currentInfo.df[:zg]' * (xg .- currentInfo.x[:zg]) +
+#                                         currentInfo.df[:zl]' * (xl .- currentInfo.x[:zl]) 
+#                                         )
+#         @constraint(model_nxt, [k in keys(currentInfo.G)], y1 .>= currentInfo.G[k] + 
+#                                                                       sum(currentInfo.dG[k][:zb] .* (xb .- currentInfo.x[:zb]))
+#                                                                     + sum(currentInfo.dG[k][:zg] .* (xg .- currentInfo.x[:zg]))
+#                                                                     + sum(currentInfo.dG[k][:zl] .* (xl .- currentInfo.x[:zl]))
+#                                                                     )
+
+#         @objective(model_nxt, Min, sum((xb .- currentInfo.x[:zb]) .* (xb .- currentInfo.x[:zb])) +
+#                                    sum((xg .- currentInfo.x[:zg]) .* (xg .- currentInfo.x[:zg])) +
+#                                    sum((xl .- currentInfo.x[:zl]) .* (xl .- currentInfo.x[:zl]))
+#                                     )
+#         optimize!(model_nxt)
+#         st = termination_status(model_nxt)
+#         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
+#             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
+#                                             :zg => JuMP.value.(xg), 
+#                                             :zl => JuMP.value.(xl)
+#                                             )
+#         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
+#             return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+#                                                 currentInfo.x[:zg]' * ẑ[:zg] - 
+#                                                 currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+#         else
+#             set_normalized_rhs( level_constraint, w + 1 * (W - w))
+#             optimize!(model_nxt)
+#             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
+#                                             :zg => JuMP.value.(xg), 
+#                                             :zl => JuMP.value.(xl)
+#                                             )
+#             break   
+#         end
+
+#         ## stop rule
+#         if Δ < threshold || iter > max_iter 
+#             return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+#                                                 currentInfo.x[:zg]' * ẑ[:zg] - 
+#                                                 currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+#         end
+#         ######################################################################################################################
+#         #####################################################    end   #######################################################
+#         ######################################################################################################################
+
+#         ## save the trajectory
+#         currentInfo = compute_f_G(x_nxt, Enhanced_Cut = Enhanced_Cut)
+#         iter = iter + 1
+        
+#         functionHistory.f_his[iter] = currentInfo.f
+#         functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G))
+#     end
+
+# end

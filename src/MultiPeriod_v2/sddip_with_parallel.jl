@@ -17,14 +17,17 @@ addprocs(4)
 
     const GRB_ENV = Gurobi.Env()
     
-    include("src/Multi_period_Wildfire/data_struct.jl")
-    include("src/Multi_period_Wildfire/backward_pass.jl")
-    include("src/Multi_period_Wildfire/forward_pass.jl")
-    include("src/Multi_period_Wildfire/gurobiTest.jl")
+    include("src/MultiPeriod_v2/data_struct.jl")
+    include("src/MultiPeriod_v2/backward_pass.jl")
+    include("src/MultiPeriod_v2/forward_pass.jl")
+    include("src/MultiPeriod_v2/gurobiTest.jl")
 end
 
-# include("src/Multi_period_Wildfire/runtests_case30.jl")  
-include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")  
+include("src/MultiPeriod_v2/wildfire_spread_simulation.jl")
+include("src/MultiPeriod_v2/readin.jl")
+
+# include("src/MultiPeriod_v2/runtests_case30.jl")  
+include("src/MultiPeriod_v2/runtests_RTS_GMLC.jl")  
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################

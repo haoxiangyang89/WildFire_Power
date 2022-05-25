@@ -1,7 +1,3 @@
-
-include("src/Multi_period_Wildfire/wildfire_spread_simulation.jl")
-
-
 network_data = PowerModels.parse_file("data/RTS_GMLC/case_RTS_GMLC.m");
 businfo = CSV.read("data/RTS_GMLC/bus.csv", DataFrame);
 branchInfo = CSV.read("data/RTS_GMLC/branch.csv", DataFrame);

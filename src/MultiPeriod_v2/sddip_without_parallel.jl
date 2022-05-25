@@ -12,13 +12,16 @@ using CSV, DataFrames
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/Multi_period_Wildfire_Version2/data_struct.jl")
-include("src/Multi_period_Wildfire_Version2/backward_pass.jl")
-include("src/Multi_period_Wildfire_Version2/forward_pass.jl")
-include("src/Multi_period_Wildfire_Version2/gurobiTest.jl")
+include("src/MultiPeriod_v2/data_struct.jl")
+include("src/MultiPeriod_v2/backward_pass.jl")
+include("src/MultiPeriod_v2/forward_pass.jl")
+include("src/MultiPeriod_v2/gurobiTest.jl")
 
-include("src/Multi_period_Wildfire_Version2/runtests_RTS_GMLC.jl")
-# include("src/Multi_period_Wildfire_Version2/runtests_case30.jl") 
+include("src/MultiPeriod_v2/wildfire_spread_simulation.jl")
+include("src/MultiPeriod_v2/readin.jl")
+
+include("src/MultiPeriod_v2/runtests_RTS_GMLC.jl")
+# include("src/MultiPeriod_v2/runtests_case30.jl") 
 
 #############################################################################################
 ####################################    main function   #####################################
@@ -105,7 +108,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                 push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
 
                 @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
-                if OPT-LB <= 4e-4 * OPT || i > max_iter
+                if OPT-LB <= ϵ * OPT || i > max_iter
                     # println(Stage1_collection[k].state_variable[:zg])
                     # println(gurobiResult.first_state_variable[:zg])
                     return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
