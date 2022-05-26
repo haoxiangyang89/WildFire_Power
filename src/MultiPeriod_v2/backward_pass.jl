@@ -357,7 +357,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     @variable(model_oracle, y <= 0);
 
     para_oracle_bound = abs(currentInfo.f);
-    z_rhs = 15 * 10^(ceil(log10(para_oracle_bound)));
+    z_rhs = 20 * 10^(ceil(log10(para_oracle_bound)));
     @constraint(model_oracle, oracle_bound, z >= - z_rhs);
 
     @objective(model_oracle, Min, z);
@@ -408,7 +408,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter) 
         level = w + λ * (W - w)
 
-        if Output_Gap == true
+        if Output_Gap
             @info "Gap is $Δ, iter num is $iter, func_val is $( - currentInfo.f), Constraint is $(currentInfo.G)"
         end
         

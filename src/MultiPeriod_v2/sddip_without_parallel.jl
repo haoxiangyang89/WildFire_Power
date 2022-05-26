@@ -41,6 +41,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
+    iter_time = 0; total_Time = 0; t0 = 0.0;
     cut_collection = Dict{Int64, CutCoefficient}();  # here, the index is ω
 
     for ω in indexSets.Ω
@@ -157,12 +158,12 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             )
 
-                if (OPT-LB)/LB <= 1e-3 
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e2; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+                if (OPT-LB)/LB <= 1e-1 
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e1; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e4, Output, Output_Gap, Adj)
                 else
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+                    λ_value = .1; Output = 0; Output_Gap = true; Adj = false; Enhanced_Cut = true; threshold = 1e4; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e3, Output, Output_Gap, Adj)
                 end
 
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
