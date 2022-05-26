@@ -110,8 +110,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
 
                 @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
                 if OPT-LB <= ϵ * OPT || i > max_iter
-                    # println(Stage1_collection[k].state_variable[:zg])
-                    # println(gurobiResult.first_state_variable[:zg])
+                    # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
                     return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
                 end
             end
@@ -159,11 +158,11 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             )
 
                 if (OPT-LB)/LB <= 1e-1 
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e1; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e4, Output, Output_Gap, Adj)
+                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e-5; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e4, Output, Output_Gap, Adj)
                 else
-                    λ_value = .1; Output = 0; Output_Gap = true; Adj = false; Enhanced_Cut = true; threshold = 1e4; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e3, Output, Output_Gap, Adj)
+                    λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1.5e3, Output, Output_Gap, Adj)
                 end
 
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 

@@ -113,14 +113,14 @@ end
 
 
 struct LevelSetMethodParam
-    μ             ::Float64   ## param for adjust α
-    λ             ::Float64   ## param for adjust level
-    threshold     ::Float64   ## threshold for Δ
-    nxt_bound     ::Float64   ## lower bound for solving next iteration point π
+    μ             ::Float64                     ## param for adjust α
+    λ             ::Float64                     ## param for adjust level
+    threshold     ::Float64                     ## threshold for Δ
+    nxt_bound     ::Float64                     ## lower bound for solving next iteration point π
     max_iter      ::Int64     
-    Output        ::Int64     ## Gurobi Output parameter
-    Output_Gap    ::Bool      ## if True will print Δ info
-    Adj           ::Bool      ## whether adjust oracle lower bound
+    Output        ::Int64                       ## Gurobi Output parameter
+    Output_Gap    ::Bool                        ## if True will print Δ info
+    Adj           ::Union{Bool, Nothing}        ## whether adjust oracle lower bound
 end
 
 

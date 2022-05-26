@@ -318,9 +318,9 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     ##############################################   level set method   ##################################################
     ######################################################################################################################
     if Enhanced_Cut
-        x₀ = Dict{Symbol, Vector{Float64}}(      :zb => ẑ[:zb] * 2 * f_star_value .- f_star_value, 
-                                        :zg => ẑ[:zg] * 2 * f_star_value .- f_star_value, 
-                                        :zl => ẑ[:zl] * 2 * f_star_value .- f_star_value
+        x₀ = Dict{Symbol, Vector{Float64}}(      :zb => ẑ[:zb] * 4 * f_star_value .- 2 * f_star_value, 
+                                        :zg => ẑ[:zg] * 4 * f_star_value .- 2 * f_star_value, 
+                                        :zl => ẑ[:zl] * 4 * f_star_value .- 2 * f_star_value
                                         )
     else
         x₀ = Dict{Symbol, Vector{Float64}}(      :zb => ẑ[:zb] * 0, 
@@ -453,6 +453,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             :zl => JuMP.value.(xl)
                                             )
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
+            @info "Numerical Error occures!"
             if Enhanced_Cut
                 return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
                                                         currentInfo.x[:zg]' * x_interior[:zg] - 
@@ -473,7 +474,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         end
 
         ## stop rule
-        if Δ < threshold || iter > max_iter 
+        if Δ < threshold * f_star_value || iter > max_iter 
             if Enhanced_Cut
                 return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
                                                         currentInfo.x[:zg]' * x_interior[:zg] - 
@@ -711,7 +712,7 @@ end
 #         end
 
 #         ## stop rule
-#         if Δ < threshold || iter > max_iter 
+#         if Δ < threshold * f_star_value || iter > max_iter 
 #             return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
 #                                                 currentInfo.x[:zg]' * ẑ[:zg] - 
 #                                                 currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 

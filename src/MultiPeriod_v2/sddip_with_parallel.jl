@@ -102,7 +102,6 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                     Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
                                     paramDemand::ParamDemand = paramDemand, 
                                     paramOPF::ParamOPF = paramOPF, 
-                                    levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                     ϵ::Float64 = 1e-3, interior_value::Float64 = 0.5,
                                     Stage1_collection::Dict{Any, Any} = Stage1_collection)
                                     
@@ -111,6 +110,14 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                         :zb => Stage1_collection[1][1][:zb][:, randomVariables.τ - 1], 
                         :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
                         )
+            
+            if Enhanced_Cut
+                λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
+                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1.5e3, Output, Output_Gap, Adj)
+            else
+                λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e-5; 
+                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e4, Output, Output_Gap, Adj)
+            end
 
             c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ, f_star_value, randomVariables,                 
