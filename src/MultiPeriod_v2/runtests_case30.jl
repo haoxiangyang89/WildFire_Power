@@ -204,7 +204,7 @@ network_data = PowerModels.parse_file("/Users/aaron/matpower7.1/data/case30.m")
 
 ## construct _prepareIndexSets = prepareIndexSets(D, G, L, B ,3, [1,2,3,4])
 T = 5
-Ω = 4
+Ω = 24
 pub = .1
 pug = .1
 pul = .1
@@ -232,12 +232,12 @@ end
 
 
 #############################################################################################################
-@everywhere begin
-    max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;
+# @everywhere begin
+#     max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;
 
-    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
-    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-end
+#     λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; 
+#     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
+# end
 
 
 

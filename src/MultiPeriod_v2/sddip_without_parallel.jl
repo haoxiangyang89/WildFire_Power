@@ -157,8 +157,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             )
 
-                if (OPT-LB)/LB <= 1e-1 
-                    λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e-5; 
+                if (OPT-LB)/LB <= 1e-3 
+                    λ_value = .99; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e-5; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e4, Output, Output_Gap, Adj)
                 else
                     λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 

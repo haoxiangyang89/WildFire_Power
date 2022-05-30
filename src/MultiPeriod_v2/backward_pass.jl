@@ -216,7 +216,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     ###############################   auxiliary function for function information   ######################################
     ######################################################################################################################
     ##  μ larger is better
-    (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap, Adj) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap, levelSetMethodParam.Adj)
+    (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap)
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
 
@@ -357,35 +357,23 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     @variable(model_oracle, y <= 0);
 
     para_oracle_bound = abs(currentInfo.f);
-    z_rhs = 20 * 10^(ceil(log10(para_oracle_bound)));
+    z_rhs = 10 * 10^(ceil(log10(para_oracle_bound)));
     @constraint(model_oracle, oracle_bound, z >= - z_rhs);
 
     @objective(model_oracle, Min, z);
     oracle_info = ModelInfo(model_oracle, xb_oracle, xg_oracle, xl_oracle, y, z);
 
 
+    gap_list = []
+    iter_significance = Inf
 
     while true
-        if Adj
-            param_z_rhs = abs(currentInfo.f)
-            if z_rhs <  1.5 * param_z_rhs
-                # @info "z level up $(z_rhs/param_z_rhs)"
-                z_rhs = 2 * z_rhs
-            end
-
-            if z_rhs > 10 * param_z_rhs
-                # @info "z level down $(z_rhs/param_z_rhs) "
-                z_rhs = .1 * z_rhs
-            end 
-            set_normalized_rhs(oracle_bound, - z_rhs)  
-        end
-
         add_constraint(currentInfo, oracle_info)
         optimize!(model_oracle)
 
         st = termination_status(model_oracle)
         if st != MOI.OPTIMAL
-            @info "oracle is infeasible"
+            @info "Break --oracle is infeasible"
             break
         end
 
@@ -395,6 +383,8 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output)
         Δ, a_min, a_max = result[1], result[2], result[3]
+
+        push!(gap_list, Δ)
         
         ## update α
         if μ/2 <= (α-a_min)/(a_max-a_min) .<= 1-μ/2
@@ -453,7 +443,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             :zl => JuMP.value.(xl)
                                             )
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
-            @info "Numerical Error occures!"
+            @info "Termination -- Numerical Error occures!"
             if Enhanced_Cut
                 return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
                                                         currentInfo.x[:zg]' * x_interior[:zg] - 
@@ -464,6 +454,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
             end
         else
+            @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( level_constraint, w + 1 * (W - w))
             optimize!(model_nxt)
             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
@@ -473,8 +464,24 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             # break   
         end
 
+        if iter > 30
+            iter_significance = abs(gap_list[iter] - sum(gap_list[iter-29:iter])/30)
+            if iter_significance ≤ Δ * 1e-2 && currentInfo.G[1] ≤ 0
+                @info "Termination -- Progress ($iter_significance) is too slow."
+                if Enhanced_Cut
+                    return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
+                                                            currentInfo.x[:zg]' * x_interior[:zg] - 
+                                                            currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
+                else
+                    return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+                                                    currentInfo.x[:zg]' * ẑ[:zg] - 
+                                                    currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+                end
+            end
+        end
+
         ## stop rule
-        if Δ < threshold * f_star_value || iter > max_iter 
+        if Δ < threshold * f_star_value || iter > max_iter
             if Enhanced_Cut
                 return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
                                                         currentInfo.x[:zg]' * x_interior[:zg] - 
