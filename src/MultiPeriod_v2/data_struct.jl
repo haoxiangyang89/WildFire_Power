@@ -120,7 +120,7 @@ struct LevelSetMethodParam
     max_iter      ::Int64     
     Output        ::Int64                       ## Gurobi Output parameter
     Output_Gap    ::Bool                        ## if True will print Δ info
-    Adj           ::Union{Bool, Nothing}        ## whether adjust oracle lower bound
+    # Adj           ::Union{Bool, Nothing}        ## whether adjust oracle lower bound
 end
 
 

@@ -1,41 +1,7 @@
-using Distributed
-addprocs(4)
-
-@everywhere begin
-    using JuMP, Gurobi, PowerModels
-    using Statistics, StatsBase, Random, Dates
-    using Distributed, ParallelDataTransfer
-    using Distributions
-    using DataFrames
-
-    # using Agents, Distributions
-    # using CSV, Geodesy
-    # using InteractiveDynamics
-    # using CairoMakie
-    # using PowerModels
-
-
-    const GRB_ENV = Gurobi.Env()
-    
-    include("src/MultiPeriod_v2/data_struct.jl")
-    include("src/MultiPeriod_v2/backward_pass.jl")
-    include("src/MultiPeriod_v2/forward_pass.jl")
-    include("src/MultiPeriod_v2/gurobiTest.jl")
+@everywhere begin 
+    λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = ϵ * Stage2_collection[ω]; 
+    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e3, Output, Output_Gap);
 end
-
-include("src/MultiPeriod_v2/wildfire_spread_simulation.jl")
-include("src/MultiPeriod_v2/readin.jl")
-
-# include("src/MultiPeriod_v2/runtests_case30.jl")  
-include("src/MultiPeriod_v2/runtests_RTS_GMLC.jl")  
-#############################################################################################
-####################################    main function   #####################################
-#############################################################################################
-
-@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;μ_value = .95; λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(μ_value, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-
-
-
 
 function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables}, 
                             prob::Dict{Int64,Float64}, 
@@ -102,7 +68,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                     Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
                                     paramDemand::ParamDemand = paramDemand, 
                                     paramOPF::ParamOPF = paramOPF, 
-                                    ϵ::Float64 = 1e-3, interior_value::Float64 = 0.5,
+                                    ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5,
                                     Stage1_collection::Dict{Any, Any} = Stage1_collection)
                                     
             randomVariables = Ω_rv[ω]
@@ -111,12 +77,12 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                         :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
                         )
             
-            if Enhanced_Cut
-                λ_value = .8; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e-5; 
-                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1.5e3, Output, Output_Gap, Adj)
+            if (OPT-LB)/LB <= 1e-4
+                λ_value = .9; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
+                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e2, Output, Output_Gap);
             else
-                λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = false; threshold = 1e-5; 
-                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e4, Output, Output_Gap, Adj)
+                λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = ϵ * Stage2_collection[ω]; 
+                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e3, Output, Output_Gap);
             end
 
             c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
@@ -162,8 +128,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                     return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
                 end
             end
+
             ## stage 2
-            # first_stage_decision = Stage1_collection[k].state_variable
             c = 0.0
             for ω in indexSets.Ω
                 randomVariables = Ω_rv[ω];

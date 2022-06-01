@@ -1,8 +1,6 @@
 ################################################################################################################################################
 ######################################################  Data Preparation  ######################################################################
 ################################################################################################################################################
-
-
 function prepareIndexSets(  network_data::Dict{String, Any} ,
                                                     T::Int64,
                                                     Ω::Int64
@@ -21,7 +19,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
     in_L =  Dict{Int64,Vector{Int64}}()
 
 
-    _b = Dict{Tuple{Int64, Int64}, Float64}()                   ## total line charging susceptance
+    _b = Dict{Tuple{Int64, Int64}, Float64}()  ## total line charging susceptance
     θmax = network_data["branch"]["1"]["angmax"]
     θmin = network_data["branch"]["1"]["angmin"]
     W = Dict{Tuple{Int64, Int64}, Float64}()
@@ -32,8 +30,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
     for t in 1:T 
         Demand[t] = Dict{Int64, Float64}()
     end
-    w = Dict{Int64, Float64}()                                  ## priority level of load D
-    cb = Dict{Int64, Float64}()                                 ## set of fire damage cost cᵢ at :b ∈ B
+    w = Dict{Int64, Float64}()              ## priority level of load D
+    cb = Dict{Int64, Float64}()             ## set of fire damage cost cᵢ at :b ∈ B
     cg = Dict{Int64, Float64}()
     cl = Dict{Tuple{Int64, Int64}, Float64}()
 
@@ -44,13 +42,13 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = rand(1)[1] * 1e6 
+        cb[b] = rand(1)[1] * 1e6 ## 0                ############# need to revise
     end
 
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = network_data["load"][i]["pd"] * 1e4              ## priority level of load d
+        w[d] = network_data["load"][i]["pd"] * 1e4                     ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
@@ -69,7 +67,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
         smax[g] = network_data["gen"][i]["pmax"]
         smin[g] = network_data["gen"][i]["pmin"]
-        cg[g] = rand(1)[1] * 8e5                            
+        cg[g] = rand(1)[1] * 8e5                             ############# need to revis
     end
 
 
@@ -83,7 +81,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
             _b[l] = 1/network_data["branch"][i]["br_x"]   ## total line charging susceptance
             W[l] = network_data["branch"][i]["rate_a"]              
-            cl[l] = rand(1)[1] * 1e4                               
+            cl[l] = rand(1)[1] * 1e4                               ############# need to revise
         end
     end
     
@@ -98,8 +96,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 end
 
 function prepareSimulation(businfo::DataFrame, branchInfo::DataFrame, WFPI_Info::DataFrame;     
-                                                            n::Int64 = 100,  ## increase boundary
-                                                            grid_length::Int64 = 1000
+                                                            n::Int64 = 100, ## increase boundary
+                                                            grid_length::Int64 = 3000
                                                             )
     
     busLocation = businfo[!, [1, 14, 15]]
@@ -180,10 +178,39 @@ end
 function prepareScenarios( ;period_span::Int64 = 1, 
                             T::Int64 = 48, 
                             Ω::Int64 = 5, 
-                            indexSets::IndexSets = indexSets, line_id_bus::Dict = line_id_bus,
-                            bus_id_location::Dict = bus_id_location, line_location_id::Dict = line_location_id
-                            )
-                
+                            indexSets::IndexSets = indexSets, prob_fault::Float64 = 0.1, line_id_bus::Dict = line_id_bus)
+
+    function check_vector_exist(key::Union{Tuple{Int64, Int64}, Int64}, dict::Dict)
+        if key ∈ keys(dict)
+            push!(dict[key], key)
+        else
+            dict[key] = []
+            push!(dict[key], key)
+        end
+    end
+
+
+    function check_vector_exist(key::Union{Tuple{Int64, Int64}, Int64}, dict::Dict, G::Dict)
+        if length(key) == 1
+            if key ∈ keys(dict)
+                push!(dict[key], G[key]...)
+            else
+                dict[key] = []
+                push!(dict[key], G[key]...)
+            end
+        else
+            if key ∈ keys(dict)
+                push!(dict[key], G[key[1]]...)
+                push!(dict[key], G[key[2]]...)
+            else
+                dict[key] = []
+                push!(dict[key], G[key[1]]...)
+                push!(dict[key], G[key[2]]...)
+            end
+        end
+    end 
+
+
     environmentInfo = Dict{Tuple{Int64, Int64}, CellEnvironmentInfo}()
 
     for i in 1:x_grid_num
@@ -197,13 +224,11 @@ function prepareScenarios( ;period_span::Int64 = 1,
         end
     end
 
-    Ω_rv = Dict{Int64, RandomVariables}();
-    Gᵢ = indexSets.Gᵢ;
-    B = indexSets.B;
-    G = indexSets.G;
-    L = indexSets.L;
-    in_L = indexSets.in_L;
-    out_L = indexSets.out_L;
+    Ω_rv = Dict{Int64, RandomVariables}()
+    Gᵢ = indexSets.Gᵢ
+    B = indexSets.B
+    G = indexSets.G
+    L = indexSets.L
     for ω in 1:Ω 
         τ = rand(2:T)
 
@@ -253,23 +278,32 @@ function prepareScenarios( ;period_span::Int64 = 1,
 
 
         forest = initialize(bus_id_location, line_location_id;  griddims = (x_grid_num, y_grid_num), 
-                        environmentInfo = environmentInfo, time_span = 1);
+                        environmentInfo = environmentInfo, time_span = 1)
 
         ## generate wildfire random variables
-        # disruption_not_occur = true
         for i in 1:floor((T/period_span))
             Agents.step!(forest, agent_step!, wildfire_ignition_step!, period_span)
 
             if sum(forest.lineFired) > 0 && sum(forest.busFired) > 0
-                # if disruption_not_occur
-                #     τ = i * period_span
-                #     disruption_not_occur = false
-                # end
                 τ = i * period_span
+
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
                         id = line_location_id[I.I].id
                         vl[line_id_bus[id]] = 1
+                        check_vector_exist(line_id_bus[id], Ill)
+                        # check_vector_exist(line_id_bus[id], Ilb)
+                        check_vector_exist(line_id_bus[id], Ilg, Gᵢ)
+
+                        # push!(Ill[line_id_bus[id]], line_id_bus[id])
+                        if line_id_bus[id] ∈ keys(Ilb)
+                            push!(Ilb[line_id_bus[id]], line_id_bus[id]...)
+                        else 
+                            Ilb[line_id_bus[id]] = []
+                            push!(Ilb[line_id_bus[id]], line_id_bus[id]...)
+                        end
+                        # push!(Ilg[line_id_bus[id]], Gᵢ[line_id_bus[id][1]]...)
+                        # push!(Ilg[line_id_bus[id]], Gᵢ[line_id_bus[id][2]]...)
                     end
                 end
                 
@@ -278,6 +312,13 @@ function prepareScenarios( ;period_span::Int64 = 1,
                     for I in findall(isequal(1), forest.busFired)
                         bus_id = bus_location_id[I.I]
                         vb[bus_id] = 1
+                        for id in Gᵢ[bus_id] 
+                            vg[id] = 1 
+                            check_vector_exist(id, Igg)
+                            check_vector_exist(bus_id, Igb)
+                        end
+                        check_vector_exist(bus_id, Ibb)
+                        check_vector_exist(bus_id, Ibg, Gᵢ)
                     end
                 end 
 
@@ -302,8 +343,8 @@ function prepareScenarios( ;period_span::Int64 = 1,
         ## generate fault random variables
         for l in L 
             if ul[l] == 1
-                ub[l[1]] = rand(Binomial(1, .5), 1)[1]
-                ub[l[2]] = rand(Binomial(1, .5), 1)[1]
+                ub[l[1]] = 1
+                ub[l[2]] = 1
             end
         end
 
@@ -311,88 +352,12 @@ function prepareScenarios( ;period_span::Int64 = 1,
         for b in B 
             if ub[b] == 1
                 for g in Gᵢ[b]
-                    ug[g] = rand(Binomial(1, .5), 1)[1]
+                    ug[g] = rand(Binomial(1, .8), 1)[1]
                 end
             end
         end
 
-
-        firedBus = []
-        for b in keys(vb)
-            if vb[b] == 1
-                push!(firedBus, b)
-            end 
-        end
-
-
-        # to generate the random sets
-
-        (x_grid_num2, y_grid_num2, line_location_id2, 
-                                    line_id_location2, 
-                                    line_id_bus2,
-                                    bus_id_location2, 
-                                    bus_location_id2) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 10, grid_length = 5000);
-
-        for firedID in firedBus 
-            firedPos = bus_id_location2[firedID]
-            forest_single_component = initialize_single_component!(firedPos, bus_id_location2, line_location_id2;  
-                                                                    griddims = (x_grid_num2, y_grid_num2), 
-                                                                    environmentInfo = environmentInfo, 
-                                                                    time_span = 1)
-            Agents.step!(forest_single_component, agent_step!, wildfire_ignition_step!, 3)
-            if sum(forest_single_component.lineFired) > 0
-                for I in findall(isequal(1), forest_single_component.lineFired)
-                    push!(Ibl[firedID], line_id_bus2[line_location_id2[I.I].id])
-                end
-            end
-
-            if sum(forest_single_component.busFired) > 0
-                for I in findall(isequal(1), forest_single_component.busFired)
-                    push!(Ibb[firedID], bus_location_id2[I.I])
-                end
-            end 
-
-        end
-
-        for l in L 
-            if vl[l] == 1
-                push!(Ilb[l], l[rand(1:end)]) 
-                
-                if !isempty(out_L[l[1]])
-                    b2 = out_L[l[1]][rand(1:end)]
-                    push!(Ill[l], (l[1], b2))
-                end
-
-                if !isempty(out_L[l[2]])
-                    b2 = in_L[l[2]][rand(1:end)]
-                    push!(Ill[l], (b2, l[2]))
-                end
-            end
-        end
-
-
-        for b in firedBus 
-            for g in Gᵢ[b]
-                if rand(Binomial(1, .3), 1)[1] == 1
-                    push!(Ibg[b], g)
-                    push!(Igb[g], b)
-                end 
-
-                for g2 in Gᵢ[b]
-                    if rand(Binomial(1, .3), 1)[1] == 1
-                        push!(Igg[g], g2)
-                    end 
-                end
-
-                if rand(Binomial(1, .3), 1)[1] == 1
-                    if !isempty(out_L[b])
-                        b2 = out_L[b][rand(1:end)]
-                        push!(Igl[g], (b, b2))
-                    end
-                end
-            end
-
-        end
+        
 
 
         Ω_rv[ω] = RandomVariables(τ, ub, ug, ul, vb, vg, vl, Ibb, Ibg, Ibl, Igb, Igg, Igl, Ilb, Ilg, Ill)
@@ -400,4 +365,3 @@ function prepareScenarios( ;period_span::Int64 = 1,
 
     return Ω_rv
 end
-
