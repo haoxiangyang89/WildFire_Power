@@ -51,7 +51,7 @@ function forward_stage1_model!(indexSets::IndexSets,
     @constraint(Q, [l in L, t in 1:T], P[l, t] <= paramOPF.W[l] * zl[l, t] )
 
     ## constraint 1e
-    @constraint(Q, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+    @constraint(Q, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i]) + sum(P[(j, i), t] for j in in_L[i]) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
     
     ## constraint 1f
     @constraint(Q, [g in G, t in 1:T], s[g, t] >= paramOPF.smin[g] * zg[g, t] )
@@ -164,7 +164,7 @@ function forward_stage2_model!(indexSets::IndexSets,
    
     for i in B 
       ## constraint 3e
-      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i]) + sum(P[(j, i), t] for j in in_L[i]) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint g h i j
       @constraint(Q, [t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )
@@ -362,7 +362,7 @@ function forward_stage2_optimize!(indexSets::IndexSets,
    
     for i in B 
       ## constraint 3e
-      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i] ) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i]) + sum(P[(j, i), t] for j in in_L[i]) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint g h i j
       @constraint(Q, [t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )

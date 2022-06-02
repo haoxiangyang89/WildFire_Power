@@ -1,56 +1,18 @@
-using Distributed
-addprocs(4)
-
-@everywhere begin
-    using JuMP, Gurobi, PowerModels
-    using Statistics, StatsBase, Random, Dates
-    using Distributed, ParallelDataTransfer
-    using Distributions
-    using DataFrames
-
-    # using Agents, Distributions
-    # using CSV, Geodesy
-    # using InteractiveDynamics
-    # using CairoMakie
-    # using PowerModels
-
-
-    const GRB_ENV = Gurobi.Env()
-    
-    include("src/Multi_period_Wildfire/data_struct.jl")
-    include("src/Multi_period_Wildfire/backward_pass.jl")
-    include("src/Multi_period_Wildfire/forward_pass.jl")
-    include("src/Multi_period_Wildfire/gurobiTest.jl")
-end
-
-# include("src/Multi_period_Wildfire/runtests_case30.jl")  
-include("src/Multi_period_Wildfire/runtests_RTS_GMLC.jl")  
 #############################################################################################
 ####################################    main function   #####################################
 #############################################################################################
 
-@broadcast max_iter = 200; ϵ = 1e-3; Enhanced_Cut = true;μ_value = .95; λ_value = .1; Output = 0; Output_Gap = false; Adj = false; Enhanced_Cut = true; threshold = 1e2; levelSetMethodParam = LevelSetMethodParam(μ_value, λ_value, threshold, 1e14, 3e3, Output, Output_Gap, Adj)
-
-
-
-
-function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables}, 
-                            prob::Dict{Int64,Float64}, 
-                            indexSets::IndexSets, 
-                            paramDemand::ParamDemand, 
-                            paramOPF::ParamOPF; 
-                            levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam,
-                            ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-                            Enhanced_Cut::Bool = true)
-    ## M: num of scenarios when doing one iteration, M = 1 for this instance
-    M = 1
-    initial = now();
-    @broadcast T = 2;
-    
-    i = 1;
-    LB = - Inf;
-    UB = Inf;
-    
+function SDDiP_algorithm( ;
+                            Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
+                            prob::Dict{Int64,Float64} = prob, 
+                            indexSets::IndexSets = indexSets, 
+                            paramDemand::ParamDemand = paramDemand, 
+                            paramOPF::ParamOPF = paramOPF,
+                            ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 100)
+    ## d: x dim
+    ## M: num of scenarios when doing one iteration
+    initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
+    iter_time = 0; total_Time = 0; t0 = 0.0;
     cut_collection = Dict{Int64, CutCoefficient}();  # here, the index is ω
 
     for ω in indexSets.Ω
@@ -68,7 +30,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    gurobiResult = gurobiOptimize!(indexSets, 
+    @time gurobiResult = gurobiOptimize!(indexSets, 
                                     paramDemand, 
                                     paramOPF, 
                                     Ω_rv,
@@ -91,54 +53,26 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                                     )
     end 
 
-    ## an auxiliary function for backward iteration
-
-    @everywhere begin 
-        function inner_func_backward(ω::Int64, f_star_value::Float64, Enhanced_Cut::Bool; 
-                                    indexSets::IndexSets = indexSets, 
-                                    Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
-                                    paramDemand::ParamDemand = paramDemand, 
-                                    paramOPF::ParamOPF = paramOPF, 
-                                    levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                    ϵ::Float64 = 1e-3, interior_value::Float64 = 0.5,
-                                    Stage1_collection::Dict{Any, Any} = Stage1_collection)
-                                    
-            randomVariables = Ω_rv[ω]
-            ẑ = Dict(   :zg => Stage1_collection[1][1][:zg][:, randomVariables.τ - 1], 
-                        :zb => Stage1_collection[1][1][:zb][:, randomVariables.τ - 1], 
-                        :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
-                        )
-
-            c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
-                                                                    ẑ, f_star_value, randomVariables,                 
-                                                                    levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = ϵ, 
-                                                                    interior_value = interior_value, 
-                                                                    Enhanced_Cut = Enhanced_Cut
-                                                                    )
-            return c
-        end
-    end
-
     println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
+        M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
         Stage1_collection = Dict();  # to store every iteration results
         Stage2_collection = Dict{Int64, Float64}();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
 
-        ## Forward Step
+        ####################################################### Forwad Steps ###########################################################
         for k in 1:M
             ## stage 1
             optimize!(forwardInfo.model)
             state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(forwardInfo.zg)), 
                                                                                         :zb => round.(JuMP.value.(forwardInfo.zb)), 
-                                                                                        :zl => round.(JuMP.value.(forwardInfo.zl)))
-            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in indexSets.Ω)       ## 1a first term
+                                                                                        :zl => round.(JuMP.value.(forwardInfo.zl)));
+            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in indexSets.Ω);       ## 1a first term
  
             Stage1_collection[k] = (state_variable = state_variable, 
                                     state_value = state_value, 
-                                    obj_value = JuMP.objective_value(forwardInfo.model))  ## returen [state_variable, first_stage value, objective_value(Q)]
+                                    obj_value = JuMP.objective_value(forwardInfo.model));  ## returen [state_variable, first_stage value, objective_value(Q)]
             LB = Stage1_collection[k].obj_value;
             if i > 1
                 gap = round((OPT-LB)/OPT * 100 ,digits = 2);
@@ -147,11 +81,12 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
 
                 @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
                 if OPT-LB <= ϵ * OPT || i > max_iter
-                    # println(Stage1_collection[k].state_variable[:zg])
-                    # println(gurobiResult.first_state_variable[:zg])
+                    # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
                     return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
                 end
             end
+
+
             ## stage 2
             # first_stage_decision = Stage1_collection[k].state_variable
             c = 0.0
@@ -181,23 +116,46 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
 
         ## compute the upper bound
         UB = mean(u)
-        ##################################### Parallel Computation for backward step ###########################
-        @passobj 1 workers() Stage1_collection
+
+        ####################################################### Backward Steps ###########################################################
+
         for k in 1:M 
-            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...],  [Enhanced_Cut for i in keys(Ω_rv)])
-            for p_index in 1:length(keys(Ω_rv))
+            for ω in keys(Ω_rv)
+                @info "$i $ω"
+                randomVariables = Ω_rv[ω];
+                ẑ = Dict(   :zg => Stage1_collection[k].state_variable[:zg][:, randomVariables.τ - 1], 
+                            :zb => Stage1_collection[k].state_variable[:zb][:, randomVariables.τ - 1], 
+                            :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
+                            );
+
+                if (OPT-LB)/LB <= 1e-2
+                    λ_value = .9; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
+                else
+                    λ_value = .3; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = ϵ * Stage2_collection[ω]; 
+                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e15, 1.5e2, Output, Output_Gap);
+                end
+
+                coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
+                                                                    ẑ,  
+                                                                    Stage2_collection[ω], randomVariables,                 
+                                                                    levelSetMethodParam = levelSetMethodParam, 
+                                                                    ϵ = ϵ, 
+                                                                    interior_value = 0.5, 
+                                                                    Enhanced_Cut = Enhanced_Cut
+                                                                    );
+                
                 # add cut
-                ω = [keys(Ω_rv)...][p_index]
                 if i ≥ 3 
                     cut_collection[ω].v[i] = Dict{Int64, Float64}()
                     cut_collection[ω].πb[i] = Dict{Int64, Vector{Float64}}()
                     cut_collection[ω].πg[i] = Dict{Int64, Vector{Float64}}()
                     cut_collection[ω].πl[i] = Dict{Int64, Vector{Float64}}()
                 end
-                cut_collection[ω].v[i][k] = p[p_index][1]
-                cut_collection[ω].πb[i][k] = p[p_index][2][:zb]
-                cut_collection[ω].πg[i][k] = p[p_index][2][:zg]
-                cut_collection[ω].πl[i][k] = p[p_index][2][:zl]
+                cut_collection[ω].v[i][k] = coef[1]
+                cut_collection[ω].πb[i][k] = coef[2][:zb]
+                cut_collection[ω].πg[i][k] = coef[2][:zg]
+                cut_collection[ω].πl[i][k] = coef[2][:zl]
             end
         end
         
@@ -207,7 +165,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
             cut_coefficient = cut_collection[ω]
             ωk = length(keys(cut_coefficient.v[1]))  ## scenario num
             τ = Ω_rv[ω].τ
-            @constraint(forwardInfo.model, [m in 1:ωk], forwardInfo.θ[ω] .>= cut_coefficient.v[i][m] + 
+            @constraint(forwardInfo.model, [m in 1:ωk], forwardInfo.θ[ω] .≥ cut_coefficient.v[i][m] + 
                                                         cut_coefficient.πb[i][m]' * forwardInfo.zb[:, τ-1] +
                                                         cut_coefficient.πg[i][m]' * forwardInfo.zg[:, τ-1] +
                                                         cut_coefficient.πl[i][m]' * forwardInfo.zl[:, τ-1]
@@ -223,11 +181,3 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     end
 
 end
-
-
-
-
-
-
-
-

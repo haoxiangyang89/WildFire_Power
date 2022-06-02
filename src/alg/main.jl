@@ -14,16 +14,16 @@ using CSV, DataFrames
 const GRB_ENV = Gurobi.Env()
 
 
-include("src/MultiPeriod_v2/data_struct.jl")
-include("src/MultiPeriod_v2/backward_pass.jl")
-include("src/MultiPeriod_v2/forward_pass.jl")
-include("src/MultiPeriod_v2/gurobiTest.jl")
+include("src/MultiPeriod_v2/def.jl")
+include("src/MultiPeriod_v2/backwardPass.jl")
+include("src/MultiPeriod_v2/forwardPass.jl")
+include("src/MultiPeriod_v2/extFormGurobi.jl")
 
 include("src/MultiPeriod_v2/CellularAutomaton.jl")
 include("src/MultiPeriod_v2/readin.jl")
 
 include("src/MultiPeriod_v2/runtests_RTS_GMLC.jl")
-include("src/MultiPeriod_v2/SDDiP.jl")
+include("src/MultiPeriod_v2/sddip.jl")
 # include("src/MultiPeriod_v2/runtests_case30.jl") 
 
 
@@ -49,10 +49,10 @@ addprocs(4)
 
     const GRB_ENV = Gurobi.Env()
     
-    include("src/MultiPeriod_v2/data_struct.jl")
-    include("src/MultiPeriod_v2/backward_pass.jl")
-    include("src/MultiPeriod_v2/forward_pass.jl")
-    include("src/MultiPeriod_v2/gurobiTest.jl")
+    include("src/MultiPeriod_v2/def.jl")
+    include("src/MultiPeriod_v2/backwardPass.jl")
+    include("src/MultiPeriod_v2/forwardPass.jl")
+    include("src/MultiPeriod_v2/extFormGurobi.jl")
 end
 
 include("src/MultiPeriod_v2/CellularAutomaton.jl")
@@ -60,4 +60,4 @@ include("src/MultiPeriod_v2/readin.jl")
 
 # include("src/MultiPeriod_v2/runtests_case30.jl")  
 include("src/MultiPeriod_v2/runtests_RTS_GMLC.jl") 
-include("src/MultiPeriod_v2/SDDiP_parallel.jl") 
+include("src/MultiPeriod_v2/sddipParallel.jl") 
