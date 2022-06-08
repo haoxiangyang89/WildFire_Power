@@ -23,7 +23,7 @@ end
 comparsionResult[:,:diff] = comparsionResult[:,:gapTrivial] - comparsionResult[:,:gapShutOff]
 comparsionResult[:,:gap] = round.(comparsionResult[:,:diff] ./ comparsionResult[:,:Oracle] * 100, digits = 5)
 
-
+using Plots, Unitful, UnitfulRecipes
 x = comparsionResult[:,1]; oracle = comparsionResult[:,2]; shutoff = comparsionResult[:,3]; trivial = comparsionResult[:,5]; diff = comparsionResult[:,7]; # These are the plotting data
 y = hcat(oracle, shutoff, trivial, diff)
 
@@ -44,34 +44,26 @@ Plots.plot(x, y[:,1:3],
                 xlab = "Scenario", 
                 ylab = "Cost"
                 )
+hline!(mean(y[:,1:3], dims=1), label = ["meanWS" "meanSO" "meanNoSO"], line=(4, [:dot :solid :dot], 0.3, [:blue :orange :green]))
+# https://docs.juliahub.com/UnitfulRecipes/KPSlU/1.0.0/examples/2_Plots/#
+
+# p1 = Plots.plot(x, y,  
+#                 label = ["Wait & See" "Shut Off" "Trivial" "diff"], 
+#                 ls=[:dash :solid :dash :solid], 
+#                 shape=[:star5 :circle :star8 :x], 
+#                 lw =2, bg="white", ylims=(6e7, 1.12e8),
+#                 xlab = "Scenario", 
+#                 ylab = "Cost"
+#                 )
+# p2 = Plots.plot(x, diff,  
+#                 shape=[:x], 
+#                 lw =2, bg="white", 
+#                 xlab = "Scenario", 
+#                 ylab = "Progress",
+#                 linecolor = [:black]
+#                 )
 
 
-p1 = Plots.plot(x, y,  
-                label = ["Wait & See" "Shut Off" "Trivial" "diff"], 
-                ls=[:dash :solid :dash :solid], 
-                shape=[:star5 :circle :star8 :x], 
-                lw =2, bg="white", ylims=(6e7, 1.12e8),
-                xlab = "Scenario", 
-                ylab = "Cost"
-                )
-p2 = Plots.plot(x, diff,  
-                shape=[:x], 
-                lw =2, bg="white", 
-                xlab = "Scenario", 
-                ylab = "Progress",
-                linecolor = [:black]
-                )
+# Plots.plot(p1, p2, layout = (1, 2), legend = false)
 
 
-Plots.plot(p1, p2, layout = (1, 2), legend = false)
-
-
-
-Plots.plot(x, diff,  
-                label = ["Wait & See" "Shut Off" "Trivial" "diff"], 
-                ls=[:dash :solid :dash :solid], 
-                shape=[:star5 :circle :star8 :x], 
-                lw =2, bg="white", ylims=(6e7, 1.12e8),
-                xlab = "Scenario", 
-                ylab = "Cost"
-                )
