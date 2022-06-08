@@ -30,7 +30,7 @@ T = 24;
 
 prob = Dict{Int64, Float64}();
 for ω in indexSets.Ω 
-    prob[ω] = 1/Ω
+    prob[ω] = 1/Ω;
 end
 
 # @passobj 1 workers() indexSets

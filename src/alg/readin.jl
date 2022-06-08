@@ -22,8 +22,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
 
     _b = Dict{Tuple{Int64, Int64}, Float64}()                   ## total line charging susceptance
-    θmax = network_data["branch"]["1"]["angmax"]
-    θmin = network_data["branch"]["1"]["angmin"]
+    θmax = network_data["branch"]["1"]["angmin"]
+    θmin = network_data["branch"]["1"]["angmax"]
     W = Dict{Tuple{Int64, Int64}, Float64}()
     smax = Dict{Int64, Float64}()
     smin = Dict{Int64, Float64}()
@@ -44,18 +44,18 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = rand(1)[1] * 1e6 
+        cb[b] = 5
     end
 
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = network_data["load"][i]["pd"] * 1e4              ## priority level of load d
+        w[d] = 10^rand(Uniform(0, 1)) * 1e2                   ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
-            demand = network_data["load"][i]["pd"] * (1 + .2 * t)
+            demand = network_data["load"][i]["pd"] * network_data["baseMVA"] * (1 + .05 * t)
             Demand[t][d] = demand
         end
     end
@@ -67,9 +67,9 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         push!(G, g)
         push!(Gᵢ[b], g)
 
-        smax[g] = network_data["gen"][i]["pmax"]
-        smin[g] = network_data["gen"][i]["pmin"]
-        cg[g] = rand(1)[1] * 8e5                            
+        smax[g] = network_data["gen"][i]["pmax"] * network_data["baseMVA"]
+        smin[g] = network_data["gen"][i]["pmin"] * network_data["baseMVA"]
+        cg[g] = wsample([50, 1000, 2500], [0.2, .75, 0.05], 1)[1]                  
     end
 
 
@@ -83,14 +83,14 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
             _b[l] = 1/network_data["branch"][i]["br_x"]   ## total line charging susceptance
             W[l] = network_data["branch"][i]["rate_a"]              
-            cl[l] = rand(1)[1] * 1e4                               
+            cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length]                            
         end
     end
     
 
     paramOPF = ParamOPF(_b, θmax, θmin, W, smax, smin)
     indexSets = IndexSets(D, G, unique(L), B ,T, [1:Ω...], Dᵢ, Gᵢ, out_L, in_L)
-    paramDemand = ParamDemand(Demand, w, cb, cg, cl, 1e8)
+    paramDemand = ParamDemand(Demand, w, cb, cg, cl, 1e4)
  
      return (indexSets = indexSets, 
              paramOPF = paramOPF, 

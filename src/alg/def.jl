@@ -1,6 +1,8 @@
-#############################################################################################
-################################### Indices & Index Sets ####################################
-#############################################################################################
+# define data structure
+
+## ====================================================================================== ##
+## =================================DC-OPF: Index Sets ================================== ##
+## ====================================================================================== ##
 struct IndexSets
     D       :: Vector{Int64}                    ## set of load demand
     G       :: Vector{Int64}                    ## set of generators
@@ -35,23 +37,6 @@ struct ParamOPF  ## included in a period dict
 end
 
 
-
-
-
-
-
-#############################################################################################
-####################################   Data Structure   #####################################
-#############################################################################################
-struct CutCoefficient
-    v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
-    πb               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
-    πg               ::Dict{Int64,Dict{Int64, Vector{Float64}}}
-    πl               ::Dict{Int64,Dict{Int64, Vector{Float64}}}
-end
-
-
-
 ## for period t with realization ω
 struct RandomVariables  
     τ   ::Int64
@@ -83,11 +68,30 @@ end
 
 
 
+
+## ====================================================================================== ##
+## ================================== Cut Coefficient =================================== ##
+## ====================================================================================== ##
+struct CutCoefficient
+    v               ::Dict{Int64,Dict{Int64, Float64}} # [i][k] where i is the iteration index, and k is the scenario index
+    πb               ::Dict{Int64,Dict{Int64, Vector{Float64}}}  # [[1.,2.,3.],[1.,2.,3.]]  -- push!(Π, π) to add a new element
+    πg               ::Dict{Int64,Dict{Int64, Vector{Float64}}}
+    πl               ::Dict{Int64,Dict{Int64, Vector{Float64}}}
+end
+
+
+
+
+## ====================================================================================== ##
+## ================================== Levelset Method =================================== ##
+## ====================================================================================== ##
+
 ## data structure for levelset method
 mutable struct FunctionHistory
     f_his        :: Dict{Int64, Float64}          ## record f(x_j)     
     G_max_his    :: Dict{Int64, Float64}          ## record max(g[k] for k in 1:m)(x_j)   
 end
+
 
 mutable struct CurrentInfo
     x            :: Dict{Symbol, Vector{Float64}}  ## record x point
@@ -98,8 +102,6 @@ mutable struct CurrentInfo
 end
 
 
-
-
 struct ModelInfo
     model :: Model
     xb    :: JuMP.Containers.DenseAxisArray{VariableRef}
@@ -108,8 +110,6 @@ struct ModelInfo
     y     :: VariableRef
     z     :: VariableRef
 end
-
-
 
 
 struct LevelSetMethodParam
@@ -137,6 +137,7 @@ mutable struct BackwardInfo
     slack_variable_c::VariableRef   
 end
 
+
 mutable struct ForwardInfo
     model           ::Model
     θ               ::JuMP.Containers.DenseAxisArray{VariableRef, 1, Tuple{Vector{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}}}
@@ -144,6 +145,7 @@ mutable struct ForwardInfo
     zb              ::JuMP.Containers.DenseAxisArray{VariableRef, 2, Tuple{Vector{Int64}, Base.OneTo{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Int64, Int64}}, JuMP.Containers._AxisLookup{Base.OneTo{Int64}}}}
     zl              ::JuMP.Containers.DenseAxisArray{VariableRef, 2, Tuple{Vector{Tuple{Int64, Int64}}, Base.OneTo{Int64}}, Tuple{JuMP.Containers._AxisLookup{Dict{Tuple{Int64, Int64}, Int64}}, JuMP.Containers._AxisLookup{Base.OneTo{Int64}}}}
 end
+
 
 mutable struct Forward2Info
     model           :: Model

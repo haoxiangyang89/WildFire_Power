@@ -51,7 +51,10 @@ function forward_stage1_model!(indexSets::IndexSets,
     @constraint(Q, [l in L, t in 1:T], P[l, t] <= paramOPF.W[l] * zl[l, t] )
 
     ## constraint 1e
-    @constraint(Q, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i]) + sum(P[(j, i), t] for j in in_L[i]) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+    @constraint(Q, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + 
+                                          sum(P[(i, j), t] for j in out_L[i]) + 
+                                          sum(P[(j, i), t] for j in in_L[i]) 
+                                          .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
     
     ## constraint 1f
     @constraint(Q, [g in G, t in 1:T], s[g, t] >= paramOPF.smin[g] * zg[g, t] )
@@ -66,7 +69,7 @@ function forward_stage1_model!(indexSets::IndexSets,
     end
 
 
-    ## constraint 1k l m
+    ## constraint 1k
     @constraint(Q, [i in B, t in 1:T-1], zb[i, t] >= zb[i, t+1] )
     @constraint(Q, [g in G, t in 1:T-1], zg[g, t] >= zg[g, t+1] )
     @constraint(Q, [l in L, t in 1:T-1], zl[l, t] >= zl[l, t+1] )
@@ -164,7 +167,10 @@ function forward_stage2_model!(indexSets::IndexSets,
    
     for i in B 
       ## constraint 3e
-      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i]) + sum(P[(j, i), t] for j in in_L[i]) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) +
+                                                                sum(P[(i, j), t] for j in out_L[i]) + 
+                                                                    sum(P[(j, i), t] for j in in_L[i]) 
+                                                                      .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint g h i j
       @constraint(Q, [t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )
@@ -296,24 +302,22 @@ function forward_stage2_modify_constraints!(indexSets::IndexSets,
     @constraint(forward2Info.model, l3[g in indexSets.G], forward2Info.yg[g] <= ẑ[:zg][g] )
     @constraint(forward2Info.model, m3[l in indexSets.L], forward2Info.yl[l] <= ẑ[:zl][l] )
     # constraint n
-    @constraint(forward2Info.model, n3L1[l in indexSets.L, j in unique(randomVariables.Ilb[l])], forward2Info.νb[j] >= randomVariables.ul[l] * ẑ[:zl][l] )
-    @constraint(forward2Info.model, n3L2[l in indexSets.L, j in unique(randomVariables.Ilg[l])], forward2Info.νg[j] >= randomVariables.ul[l] * ẑ[:zl][l] )
-    @constraint(forward2Info.model, n3L3[l in indexSets.L, j in unique(randomVariables.Ill[l])], forward2Info.νl[j] >= randomVariables.ul[l] * ẑ[:zl][l] )
+    @constraint(forward2Info.model, n3L1[l in indexSets.L, k in unique(randomVariables.Ilb[l])], forward2Info.νb[k] >= randomVariables.ul[l] * ẑ[:zl][l] )
+    @constraint(forward2Info.model, n3L2[l in indexSets.L, k in unique(randomVariables.Ilg[l])], forward2Info.νg[k] >= randomVariables.ul[l] * ẑ[:zl][l] )
+    @constraint(forward2Info.model, n3L3[l in indexSets.L, k in unique(randomVariables.Ill[l])], forward2Info.νl[k] >= randomVariables.ul[l] * ẑ[:zl][l] )
 
-    @constraint(forward2Info.model, n3G1[g in indexSets.G, j in unique(randomVariables.Igb[g])], forward2Info.νb[j] >= randomVariables.ug[g] * ẑ[:zg][g] )
-    @constraint(forward2Info.model, n3G2[g in indexSets.G, j in unique(randomVariables.Igg[g])], forward2Info.νg[j] >= randomVariables.ug[g] * ẑ[:zg][g] )
-    @constraint(forward2Info.model, n3G3[g in indexSets.G, j in unique(randomVariables.Igl[g])], forward2Info.νl[j] >= randomVariables.ug[g] * ẑ[:zg][g] )
+    @constraint(forward2Info.model, n3G1[g in indexSets.G, k in unique(randomVariables.Igb[g])], forward2Info.νb[k] >= randomVariables.ug[g] * ẑ[:zg][g] )
+    @constraint(forward2Info.model, n3G2[g in indexSets.G, k in unique(randomVariables.Igg[g])], forward2Info.νg[k] >= randomVariables.ug[g] * ẑ[:zg][g] )
+    @constraint(forward2Info.model, n3G3[g in indexSets.G, k in unique(randomVariables.Igl[g])], forward2Info.νl[k] >= randomVariables.ug[g] * ẑ[:zg][g] )
 
-    @constraint(forward2Info.model, n3B1[i in indexSets.B, j in unique(randomVariables.Ibb[i])], forward2Info.νb[j] >= randomVariables.ub[i] * ẑ[:zb][i] )
-    @constraint(forward2Info.model, n3B2[i in indexSets.B, j in unique(randomVariables.Ibg[i])], forward2Info.νg[j] >= randomVariables.ub[i] * ẑ[:zb][i] )
-    @constraint(forward2Info.model, n3B3[i in indexSets.B, j in unique(randomVariables.Ibl[i])], forward2Info.νl[j] >= randomVariables.ub[i] * ẑ[:zb][i] )
-
-
+    @constraint(forward2Info.model, n3B1[i in indexSets.B, k in unique(randomVariables.Ibb[i])], forward2Info.νb[k] >= randomVariables.ub[i] * ẑ[:zb][i] )
+    @constraint(forward2Info.model, n3B2[i in indexSets.B, k in unique(randomVariables.Ibg[i])], forward2Info.νg[k] >= randomVariables.ub[i] * ẑ[:zb][i] )
+    @constraint(forward2Info.model, n3B3[i in indexSets.B, k in unique(randomVariables.Ibl[i])], forward2Info.νl[k] >= randomVariables.ub[i] * ẑ[:zb][i] )
 end
 
 
 
-
+## just the second stage model, have no any modification
 function forward_stage2_optimize!(indexSets::IndexSets, 
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
@@ -362,7 +366,10 @@ function forward_stage2_optimize!(indexSets::IndexSets,
    
     for i in B 
       ## constraint 3e
-      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + sum(P[(i, j), t] for j in out_L[i]) + sum(P[(j, i), t] for j in in_L[i]) .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+      @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + 
+                                                        sum(P[(i, j), t] for j in out_L[i]) + 
+                                                        sum(P[(j, i), t] for j in in_L[i]) 
+                                                        .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint g h i j
       @constraint(Q, [t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )

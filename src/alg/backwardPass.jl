@@ -400,6 +400,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         ## update level
         w = α * f_star
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter) 
+        # λ = (iter < 5 && Enhanced_Cut) ? .1 : .9
         level = w + λ * (W - w)
 
         if Output_Gap # && (iter % 30 == 0)

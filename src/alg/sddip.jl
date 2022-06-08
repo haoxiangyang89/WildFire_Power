@@ -53,7 +53,7 @@ function SDDiP_algorithm( ;
                                                     )
     end 
 
-    println("---------------- print out iteration information -------------------")
+    # println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
         M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
@@ -80,9 +80,12 @@ function SDDiP_algorithm( ;
                 push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
 
                 @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
-                if OPT-LB <= ϵ * OPT || i > max_iter
+                if OPT-LB <= 1e-3 * OPT || i > max_iter
                     # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
-                    return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
+                    return Dict(:solHistory => sddipResult, 
+                                    :solution => Stage1_collection[k], 
+                                    :gapHistory => gapList, 
+                                    :cutHistory => cut_collection) 
                 end
             end
 
@@ -118,7 +121,7 @@ function SDDiP_algorithm( ;
         UB = mean(u)
 
         ####################################################### Backward Steps ###########################################################
-
+        
         for k in 1:M 
             for ω in keys(Ω_rv)
                 @info "$i $ω"
@@ -128,13 +131,15 @@ function SDDiP_algorithm( ;
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             );
 
-                if (OPT-LB)/LB <= 1e-2
-                    λ_value = .9; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
-                else
-                    λ_value = .3; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = ϵ * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e15, 1.5e2, Output, Output_Gap);
-                end
+                # if (OPT-LB)/LB <= 6.5e-3
+                #     λ_value = .1; Output = 0; Output_Gap = true; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
+                #     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
+                # else
+                #     λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1e-4 * Stage2_collection[ω]; 
+                #     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 2e2, Output, Output_Gap);
+                # end
+                λ_value = .9; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
+                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
 
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
@@ -143,7 +148,7 @@ function SDDiP_algorithm( ;
                                                                     ϵ = ϵ, 
                                                                     interior_value = 0.5, 
                                                                     Enhanced_Cut = Enhanced_Cut
-                                                                    );
+                                                                    )
                 
                 # add cut
                 if i ≥ 3 
@@ -159,7 +164,7 @@ function SDDiP_algorithm( ;
             end
         end
         
-        ########################################################################################################
+        ########################################################### add cut ###############################################################
         # add cut for value functions
         for ω in indexSets.Ω
             cut_coefficient = cut_collection[ω]

@@ -1,12 +1,9 @@
-################################################################################################################################################
-############################################################     Gurobi function   #############################################################
-################################################################################################################################################
 
-function gurobiOptimize!(indexSets::IndexSets, 
-                            paramDemand::ParamDemand, 
-                            paramOPF::ParamOPF, 
-                            Ω_rv::Dict{Int64, RandomVariables},
-                            prob::Dict{Int64, Float64})  
+function optimalShutOff!(; indexSets::IndexSets = indexSets, 
+                            paramDemand::ParamDemand = paramDemand, 
+                            paramOPF::ParamOPF = paramOPF, 
+                            Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
+                            prob::Dict{Int64, Float64} = prob)  
 
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω) 
@@ -146,31 +143,18 @@ function gurobiOptimize!(indexSets::IndexSets,
                                                                                      
     ####################################################### solve the model and display the result ###########################################################
     optimize!(model) 
-    first_state_variable = Dict(:zg => round.(JuMP.value.(zg)), 
-                                    :zb => round.(JuMP.value.(zb)), 
-                                    :zl => round.(JuMP.value.(zl))
-                                    )
-    second_state_variable = Dict(:zg => round.(JuMP.value.(yg)), 
-                                    :zb => round.(JuMP.value.(yb)), 
-                                    :zl => round.(JuMP.value.(yl))
-                                    )
+
+    costShutOff = Dict{Int64, Float64}()
+    for ω in Ω
+        costShutOff[ω] = sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - JuMP.value.(x[d, t])) for d in D) for t in 1:Ω_rv[ω].τ - 1 ) + ## first stage
+                    sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - JuMP.value.(xω[d, t, ω])) for d in D) for t in Ω_rv[ω].τ:T) + 
+                            sum(paramDemand.cb[i] * JuMP.value.(νb[i, ω]) for i in B) + 
+                                sum(paramDemand.cg[g] * JuMP.value.(νg[g, ω]) for g in G) + 
+                                    sum(paramDemand.cl[l] * JuMP.value.(νl[l, ω]) for l in L) +  ## second stage 
+                paramDemand.penalty * JuMP.value.(slack_variable_b[ω]) - paramDemand.penalty * JuMP.value.(slack_variable_c[ω])
+    end
 
 
-    return (OPT = JuMP.objective_value(model), 
-            first_state_variable = first_state_variable, 
-            second_state_variable = second_state_variable)
+    return costShutOff
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
 
