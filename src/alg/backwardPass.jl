@@ -21,8 +21,11 @@ function backward_stage2_optimize!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => 0, 
-                "Threads" => 0) 
+                "Threads" => 0,
+                "MIPGap" => 1e-3
+                ) 
                 )
+                
 
     @variable(Q, θ_angle[indexSets.B, 1:indexSets.T]) 
     @variable(Q, P[indexSets.L, 1:indexSets.T] >= 0) ## elements in L is Tuple (i, j)
@@ -48,7 +51,7 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     ## constraint 3e
     @constraint(Q, [i in indexSets.B, t in randomVariables.τ:indexSets.T], 
                                                         sum(s[g, t] for g in indexSets.Gᵢ[i]) + 
-                                                                sum(P[(i, j), t] for j in indexSets.out_L[i]) + 
+                                                                sum(P[(i, j), t] for j in indexSets.out_L[i]) - 
                                                                     sum(P[(j, i), t] for j in indexSets.in_L[i]) 
                                                                         .== sum(paramDemand.demand[t][d] * x[d, t] for d in indexSets.Dᵢ[i]) )
 
@@ -109,7 +112,7 @@ function backward_stage2_optimize!(indexSets::IndexSets,
 
     ## objective function
     # @objective(Q, Min,  
-    #         sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+    #         sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
     #         sum(paramDemand.cb[i] * νb[i] for i in indexSets.B) + 
     #         sum(paramDemand.cg[g] * νg[g] for g in indexSets.G) + 
     #         sum(paramDemand.cl[l] * νl[l] for l in indexSets.L) +
@@ -252,7 +255,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         if Enhanced_Cut
             # objective function
             @objective(backwardInfo.Q, Min,  
-                    sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+                    sum( sum(paramDemand.w[d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
                     sum(paramDemand.cb[i] * backwardInfo.νb[i] for i in indexSets.B) + 
                     sum(paramDemand.cg[g] * backwardInfo.νg[g] for g in indexSets.G) + 
                     sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) +
@@ -285,7 +288,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         else
             # objective function
             @objective(backwardInfo.Q, Min,  
-                    sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
+                    sum( sum(paramDemand.w[d] * (1 - backwardInfo.x[d, t]) for d in indexSets.D ) for t in randomVariables.τ:indexSets.T) +
                     sum(paramDemand.cb[i] * backwardInfo.νb[i] for i in indexSets.B) + 
                     sum(paramDemand.cg[g] * backwardInfo.νg[g] for g in indexSets.G) + 
                     sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) -

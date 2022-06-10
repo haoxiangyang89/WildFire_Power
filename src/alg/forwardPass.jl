@@ -25,7 +25,8 @@ function forward_stage1_model!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                                           "OutputFlag" => 0, 
-                                          "Threads" => 0) 
+                                          "Threads" => 0, 
+                                          "MIPGap" => 1e-4) 
                                           )
                                           
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i
@@ -52,7 +53,7 @@ function forward_stage1_model!(indexSets::IndexSets,
 
     ## constraint 1e
     @constraint(Q, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + 
-                                          sum(P[(i, j), t] for j in out_L[i]) + 
+                                          sum(P[(i, j), t] for j in out_L[i]) - 
                                           sum(P[(j, i), t] for j in in_L[i]) 
                                           .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
     
@@ -92,10 +93,10 @@ function forward_stage1_model!(indexSets::IndexSets,
     # end
     
     ## objective function
-    @objective(Q, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D )
-                                                                                  for t in 1:Ω_rv[ω].τ - 1 ) + θ[ω] )
-                                                                                    for ω in Ω)  
-                                                                                )
+    @objective(Q, Min, sum( prob[ω] * 
+                                      ( sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in 1:Ω_rv[ω].τ - 1 ) + θ[ω] )
+                                                                                                                                    for ω in Ω )  
+              )
 
     forwardInfo = ForwardInfo(Q, θ, zg, zb, zl)                                                                       
     ####################################################### solve the model and display the result ###########################################################  
@@ -168,7 +169,7 @@ function forward_stage2_model!(indexSets::IndexSets,
     for i in B 
       ## constraint 3e
       @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) +
-                                                                sum(P[(i, j), t] for j in out_L[i]) + 
+                                                                sum(P[(i, j), t] for j in out_L[i]) - 
                                                                     sum(P[(j, i), t] for j in in_L[i]) 
                                                                       .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
@@ -215,7 +216,7 @@ function forward_stage2_model!(indexSets::IndexSets,
 
     ## objective function
     @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
+            sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
             sum(paramDemand.cb[i] * νb[i] for i in B) + 
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
             sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
@@ -367,8 +368,8 @@ function forward_stage2_optimize!(indexSets::IndexSets,
     for i in B 
       ## constraint 3e
       @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + 
-                                                        sum(P[(i, j), t] for j in out_L[i]) + 
-                                                        sum(P[(j, i), t] for j in in_L[i]) 
+                                                        sum(P[(i, j), t] for j in out_L[i]) - 
+                                                          sum(P[(j, i), t] for j in in_L[i]) 
                                                         .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint g h i j
@@ -414,7 +415,7 @@ function forward_stage2_optimize!(indexSets::IndexSets,
 
     ## objective function
     @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
+            sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
             sum(paramDemand.cb[i] * νb[i] for i in B) + 
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
             sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c

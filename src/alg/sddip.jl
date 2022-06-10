@@ -53,7 +53,7 @@ function SDDiP_algorithm( ;
                                                     )
     end 
 
-    # println("---------------- print out iteration information -------------------")
+    println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
         M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
@@ -131,15 +131,13 @@ function SDDiP_algorithm( ;
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             );
 
-                # if (OPT-LB)/LB <= 6.5e-3
-                #     λ_value = .1; Output = 0; Output_Gap = true; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
-                #     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
-                # else
-                #     λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1e-4 * Stage2_collection[ω]; 
-                #     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 2e2, Output, Output_Gap);
-                # end
-                λ_value = .9; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
-                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
+                if (OPT-LB)/LB <= 2e-2
+                    λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
+                else
+                    λ_value = .7; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-4 * Stage2_collection[ω]; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 10, Output, Output_Gap);
+                end
 
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
@@ -165,17 +163,18 @@ function SDDiP_algorithm( ;
         end
         
         ########################################################### add cut ###############################################################
-        # add cut for value functions
+        # add cut for value functions 
         for ω in indexSets.Ω
-            cut_coefficient = cut_collection[ω]
-            ωk = length(keys(cut_coefficient.v[1]))  ## scenario num
+            cutCoefficient = cut_collection[ω]
+            ωk = length(keys(cutCoefficient.v[1]))  ## scenario num
             τ = Ω_rv[ω].τ
-            @constraint(forwardInfo.model, [m in 1:ωk], forwardInfo.θ[ω] .≥ cut_coefficient.v[i][m] + 
-                                                        cut_coefficient.πb[i][m]' * forwardInfo.zb[:, τ-1] +
-                                                        cut_coefficient.πg[i][m]' * forwardInfo.zg[:, τ-1] +
-                                                        cut_coefficient.πl[i][m]' * forwardInfo.zl[:, τ-1]
+            @constraint(forwardInfo.model, [m in 1:ωk], forwardInfo.θ[ω] .≥ cutCoefficient.v[i][m] + 
+                                                        cutCoefficient.πb[i][m]' * forwardInfo.zb[:, τ-1] +
+                                                        cutCoefficient.πg[i][m]' * forwardInfo.zg[:, τ-1] +
+                                                        cutCoefficient.πl[i][m]' * forwardInfo.zl[:, τ-1]
                                                         )
-        end
+        end 
+    
 
         t1 = now();
         iter_time = (t1 - t0).value/1000;

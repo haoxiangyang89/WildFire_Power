@@ -35,9 +35,9 @@ function benchmark_stage1_model!(; indexSets::IndexSets = indexSets,
 
     ## constraint 1e
     @constraint(Q, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + 
-                                          sum(P[(i, j), t] for j in out_L[i]) + 
-                                          sum(P[(j, i), t] for j in in_L[i]) 
-                                          .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+                                          sum(P[(i, j), t] for j in out_L[i]) - 
+                                              sum(P[(j, i), t] for j in in_L[i]) 
+                                                .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
     
     ## constraint 1f
     @constraint(Q, [g in G, t in 1:T], s[g, t] >= paramOPF.smin[g] * zg[g, t] )
@@ -59,7 +59,7 @@ function benchmark_stage1_model!(; indexSets::IndexSets = indexSets,
     
     ## objective function
     @objective(Q, Min, sum( 
-                            sum( paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D )
+                            sum( paramDemand.w[d] * (1 - x[d, t]) for d in D )
                                                                                                  
                         for t in 1:T)
                                                                                     
@@ -130,9 +130,9 @@ function benchmark_stage2_model!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArra
     for i in B 
       ## constraint 3e
       @constraint(Q, [t in randomVariables.τ:T], sum(s[g, t] for g in Gᵢ[i]) + 
-                                                        sum(P[(i, j), t] for j in out_L[i]) + 
-                                                        sum(P[(j, i), t] for j in in_L[i]) 
-                                                        .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+                                                        sum(P[(i, j), t] for j in out_L[i]) - 
+                                                            sum(P[(j, i), t] for j in in_L[i]) 
+                                                                .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint g h i j
       @constraint(Q, [t in randomVariables.τ:T, d in Dᵢ[i]], yb[i] >= x[d, t] )
@@ -177,7 +177,7 @@ function benchmark_stage2_model!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArra
 
     ## objective function
     @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
+            sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
             sum(paramDemand.cb[i] * νb[i] for i in B) + 
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
             sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c

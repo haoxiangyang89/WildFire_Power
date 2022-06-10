@@ -193,9 +193,9 @@ function agent_step!(agent, forest)
     end
 
     if forest.lineFault[agent.pos...] == 1
-        for neighbor in nearby_agents(agent, forest, 3)
-            forest.lineFault[neighbor.pos...] = (forest.lineExist[neighbor.pos...] == 1) && (rand(1)[1] <= .05) ? 1 : 0
-            forest.busFault[neighbor.pos...] = (forest.busExist[neighbor.pos...] == 1) && (rand(1)[1] <= .1) ? 1 : 0
+        for neighbor in nearby_agents(agent, forest, 2)
+            forest.lineFault[neighbor.pos...] = (forest.lineExist[neighbor.pos...] == 1) && (rand(1)[1] <= .1) ? 1 : 0
+            forest.busFault[neighbor.pos...] = (forest.busExist[neighbor.pos...] == 1) && (rand(1)[1] <= .05) ? 1 : 0
         end
     end
 
@@ -233,7 +233,7 @@ function wildfire_ignition_step!(forest::AgentBasedModel)
         ## if the cell will be burnt if it is burning and there is a fault
         if forest.lineFault[I] == 1       
             forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I]/10 ? minimum([2, forest.ignition[I] + 1]) : forest.ignition[I]
-            forest.lineFired[I] = rand(forest.rng) <= forest.fault_WFPI[I] ? 1 : 0
+            forest.lineFired[I] = rand(forest.rng) <= forest.fault_WFPI[I]/2 ? 1 : 0
         end
 
         ## if the transmission line is fault, then it may cause a fire
@@ -327,7 +327,7 @@ function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}
     for pos in keys(line_location_id)
         forest.lineExist[pos...] = 1
         forest.fault_WFPI[pos...] = line_location_id[pos].WFPI/100    
-        forest.lineLength[pos...] = line_location_id[pos].Length/3   
+        forest.lineLength[pos...] = line_location_id[pos].Length/5  
     end
 
     for agent in allagents(forest) 

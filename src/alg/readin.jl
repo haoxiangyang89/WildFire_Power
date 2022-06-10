@@ -22,8 +22,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
 
     _b = Dict{Tuple{Int64, Int64}, Float64}()                   ## total line charging susceptance
-    θmax = network_data["branch"]["1"]["angmin"]
-    θmin = network_data["branch"]["1"]["angmax"]
+    θmax = - 3.14
+    θmin = 3.14
     W = Dict{Tuple{Int64, Int64}, Float64}()
     smax = Dict{Int64, Float64}()
     smin = Dict{Int64, Float64}()
@@ -55,7 +55,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
-            demand = network_data["load"][i]["pd"] * network_data["baseMVA"] * (1 + .05 * t)
+            demand = network_data["load"][i]["pd"] * network_data["baseMVA"] * (1 + rand(Uniform(-.15, .15)))
             Demand[t][d] = demand
         end
     end
@@ -260,7 +260,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
         for i in 1:floor((T/period_span))
             Agents.step!(forest, agent_step!, wildfire_ignition_step!, period_span)
 
-            if sum(forest.lineFired) > 0 && sum(forest.busFired) > 0
+            if sum(forest.lineFired) > 0 || sum(forest.busFired) > 0
                 # if disruption_not_occur
                 #     τ = i * period_span
                 #     disruption_not_occur = false

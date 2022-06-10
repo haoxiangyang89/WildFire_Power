@@ -60,9 +60,9 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
 
     ## constraint 1e
     @constraint(model, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + 
-                                          sum(P[(i, j), t] for j in out_L[i] ) + 
-                                          sum(P[(j, i), t] for j in in_L[i] ) 
-                                          .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+                                                sum(P[(i, j), t] for j in out_L[i] ) - 
+                                                    sum(P[(j, i), t] for j in in_L[i] ) 
+                                                         .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
     
     ## constraint 1f
     @constraint(model, [g in G, t in 1:T], s[g, t] >= paramOPF.smin[g] * zg[g, t] )
@@ -88,9 +88,9 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
 
         ## constraint 3e
         @constraint(model, [i in B, t in Ω_rv[ω].τ:T], sum(sω[g, t, ω] for g in Gᵢ[i]) + 
-                                                                                    sum(Pω[(i, j), t, ω] for j in out_L[i] ) + 
-                                                                                    sum(Pω[(j, i), t, ω] for j in in_L[i] ) 
-                                                                                    .== sum(paramDemand.demand[t][d] * xω[d, t, ω] for d in Dᵢ[i]) )
+                                                            sum(Pω[(i, j), t, ω] for j in out_L[i] ) - 
+                                                                    sum(Pω[(j, i), t, ω] for j in in_L[i] ) 
+                                                                            .== sum(paramDemand.demand[t][d] * xω[d, t, ω] for d in Dᵢ[i]) )
 
         ## constraint 3f
         @constraint(model, [g in G, t in Ω_rv[ω].τ:T], sω[g, t, ω] >= paramOPF.smin[g] * yg[g, ω])
@@ -130,9 +130,9 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
     end 
     
     ## objective function 1a & 3a
-    @objective(model, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D)
+    @objective(model, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D)
                 for t in 1:Ω_rv[ω].τ - 1 ) + ## 3a
-                sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - xω[d, t, ω]) for d in D) for t in Ω_rv[ω].τ:T) + 
+                sum( sum(paramDemand.w[d] * (1 - xω[d, t, ω]) for d in D) for t in Ω_rv[ω].τ:T) + 
                 sum(paramDemand.cb[i] * νb[i, ω] for i in B) + 
                 sum(paramDemand.cg[g] * νg[g, ω] for g in G) + 
                 sum(paramDemand.cl[l] * νl[l, ω] for l in L) + 
@@ -146,8 +146,8 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
 
     costShutOff = Dict{Int64, Float64}()
     for ω in Ω
-        costShutOff[ω] = sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - JuMP.value.(x[d, t])) for d in D) for t in 1:Ω_rv[ω].τ - 1 ) + ## first stage
-                    sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - JuMP.value.(xω[d, t, ω])) for d in D) for t in Ω_rv[ω].τ:T) + 
+        costShutOff[ω] = sum( sum(paramDemand.w[d] * (1 - JuMP.value.(x[d, t])) for d in D) for t in 1:Ω_rv[ω].τ - 1 ) + ## first stage
+                    sum( sum(paramDemand.w[d] * (1 - JuMP.value.(xω[d, t, ω])) for d in D) for t in Ω_rv[ω].τ:T) + 
                             sum(paramDemand.cb[i] * JuMP.value.(νb[i, ω]) for i in B) + 
                                 sum(paramDemand.cg[g] * JuMP.value.(νg[g, ω]) for g in G) + 
                                     sum(paramDemand.cl[l] * JuMP.value.(νl[l, ω]) for l in L) +  ## second stage 

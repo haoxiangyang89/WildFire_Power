@@ -47,9 +47,9 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
     for i in B 
       ## constraint 5e
       @constraint(Q, [t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + 
-                                                        sum(P[(i, j), t] for j in out_L[i]) + 
-                                                        sum(P[(j, i), t] for j in in_L[i]) 
-                                                        .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
+                                                        sum(P[(i, j), t] for j in out_L[i]) - 
+                                                            sum(P[(j, i), t] for j in in_L[i]) 
+                                                              .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) )
 
       ## constraint 5g h i j
       @constraint(Q, [t in 1:T, d in Dᵢ[i]], zb[i, t] >= x[d, t] )
@@ -94,7 +94,7 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
 
     ## objective function
     @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * paramDemand.demand[t][d] * (1 - x[d, t]) for d in D ) for t in 1:T) +
+            sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in 1:T) +
             sum(paramDemand.cb[i] * νb[i] for i in B) + 
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
             sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
