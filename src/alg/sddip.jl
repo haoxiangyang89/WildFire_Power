@@ -131,12 +131,12 @@ function SDDiP_algorithm( ;
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             );
 
-                if (OPT-LB)/LB <= 2e-2
+                if (OPT-LB)/LB <= 5e-2
                     λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
                 else
-                    λ_value = .7; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-4 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 10, Output, Output_Gap);
+                    λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1e-4 * Stage2_collection[ω]; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 40, Output, Output_Gap);
                 end
 
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 

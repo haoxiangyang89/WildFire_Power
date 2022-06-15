@@ -212,7 +212,7 @@ function benchmarkTrivial!(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
         ## modify the constraints according to the first stage state variables
         (state2_variable, 
                         state_value) = benchmark_stage2_model!(ẑ, randomVariables);
-        costTrivial[ω] = sum( sum( paramDemand.w[d] * paramDemand.demand[t][d] * (1 - local1_variable[d, t]) for d in indexSets.D ) for t in 1:randomVariables.τ - 1) + 
+        costTrivial[ω] = sum( sum( paramDemand.w[d] * (1 - local1_variable[d, t]) for d in indexSets.D ) for t in 1:randomVariables.τ - 1) + 
                                                                                 state_value
     end
     return costTrivial
