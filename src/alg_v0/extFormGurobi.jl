@@ -16,7 +16,7 @@ function gurobiOptimize!(indexSets::IndexSets,
                                           "OutputFlag" => 0, 
                                           "Threads" =>0) 
                                           )
-    set_optimizer_attribute(model, "TimeLimit", 6000)
+    
     ## the first stage variables
     @variable(model, θ_angle[B, 1:T])      ## phase angle of the bus i
     @variable(model, P[L, 1:T] >= 0)       ## real power flow on line l; elements in L is Tuple (i, j)

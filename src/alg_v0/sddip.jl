@@ -124,27 +124,24 @@ function SDDiP_algorithm( ;
         
         for k in 1:M 
             for ω in keys(Ω_rv)
-                # @info "$i $ω"
+                @info "$i $ω"
                 randomVariables = Ω_rv[ω];
                 ẑ = Dict(   :zg => Stage1_collection[k].state_variable[:zg][:, randomVariables.τ - 1], 
                             :zb => Stage1_collection[k].state_variable[:zb][:, randomVariables.τ - 1], 
                             :zl => Stage1_collection[k].state_variable[:zl][:, randomVariables.τ - 1]
                             );
-                f_star_value = Stage2_collection[ω]
 
-
-                if (OPT-LB)/LB <= 1e-2
+                if (OPT-LB)/LB <= 2e-2
                     λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 1e2, Output, Output_Gap);
                 else
-                    λ_value = .03; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1e-6 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 100, Output, Output_Gap);
-                end
-                λ_value = .03; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-6 * Stage2_collection[ω]; 
+                    λ_value = .7; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-4 * Stage2_collection[ω]; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 10, Output, Output_Gap);
+                end
+
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
-                                                                    f_star_value, randomVariables,                 
+                                                                    Stage2_collection[ω], randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
                                                                     ϵ = ϵ, 
                                                                     interior_value = 0.5, 

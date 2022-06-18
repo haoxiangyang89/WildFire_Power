@@ -1,6 +1,6 @@
 using JLD2, FileIO
 
-max_iter = 100; ϵ = 1e-2; 
+max_iter = 100; ϵ = 1e-4; 
 
 
 sddipResult1 = SDDiP_algorithm(; ϵ = 1e-4, max_iter = 20) 

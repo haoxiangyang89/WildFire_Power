@@ -42,7 +42,7 @@ Plots.plot(x, y[:,1:3],
                 label = ["Wait & See" "Shut Off" "No ShutOff"], 
                 ls=[:dot :solid :dot ], 
                 shape=[:star5 :circle :star8], 
-                lw =2, bg="white", ylims=(1.7e5, 3.5e5),
+                lw =2, bg="white", ylims=(2e5, 3.1e5),
                 xlab = "Scenario", 
                 ylab = "Cost"
                 )

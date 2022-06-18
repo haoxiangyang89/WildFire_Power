@@ -260,12 +260,12 @@ function prepareScenarios( ;period_span::Int64 = 1,
         for i in 1:floor((T/period_span))
             Agents.step!(forest, agent_step!, wildfire_ignition_step!, period_span)
 
-            if sum(forest.lineFired) > 5 || sum(forest.busFired) > 0
+            if sum(forest.lineFired) > 0 || sum(forest.busFired) > 0
                 # if disruption_not_occur
                 #     τ = i * period_span
                 #     disruption_not_occur = false
                 # end
-                τ = i * period_span + ceil(rand(Uniform(0,1)) * 10)
+                τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
                         id = line_location_id[I.I].id
