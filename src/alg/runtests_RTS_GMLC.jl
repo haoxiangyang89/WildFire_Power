@@ -1,3 +1,6 @@
+
+using JLD2, FileIO
+
 network_data = PowerModels.parse_file("data/RTS_GMLC/case_RTS_GMLC.m");
 businfo = CSV.read("data/RTS_GMLC/bus.csv", DataFrame);
 branchInfo = CSV.read("data/RTS_GMLC/branch.csv", DataFrame);
@@ -32,6 +35,14 @@ prob = Dict{Int64, Float64}();
 for ω in indexSets.Ω 
     prob[ω] = 1/Ω;
 end
+
+# save("indexSets.jld2", "indexSets", indexSets)
+# save("paramOPF.jld2", "paramOPF", paramOPF)
+# save("paramDemand.jld2", "paramDemand", paramDemand)
+# save("Ω_rv.jld2", "Ω_rv", Ω_rv)
+# save("prob.jld2", "prob", prob)
+
+
 
 # @passobj 1 workers() indexSets
 # @passobj 1 workers() paramOPF

@@ -403,7 +403,12 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         # update level
         w = α * f_star
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter) 
-        λ = iter ≤ 10 ? 0.05 : 0.3
+
+        λ = iter ≤ 10 ? 0.05 : 0.2
+        λ = iter ≥ 30 ? 0.4 : λ
+        λ = iter ≥ 40 ? 0.6 : λ
+        λ = iter ≥ 50 ? 0.8 : λ
+        
         level = w + λ * (W - w)
 
         if Output_Gap # && (iter % 30 == 0)
@@ -437,7 +442,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             :zl => JuMP.value.(xl)
                                             );
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
-            @info "Numerical Error occures! -- Build a new nxtModel"
+            # @info "Numerical Error occures! -- Build a new nxtModel"
 
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -464,7 +469,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 :zl => JuMP.value.(xl)
                                                 );
         else
-            @info "Re-compute Next Iteration Point -- change to a safe level!"
+            # @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( level_constraint, w + .99 * (W - w))
             optimize!(nxtModel)
             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
@@ -473,25 +478,25 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             );   
         end
 
-        # if the speed is too slow, we terminate it
-        if iter > 20
-            iter_significance = abs(gap_list[iter] - sum(gap_list[iter-9:iter])/10)
-            if iter_significance ≤ 1. # Δ * 1e-3 && currentInfo.G[1] ≤ 0
-                @info "Termination -- Progress ($iter_significance) compared to gap ($Δ) is too slow."
-                if Enhanced_Cut
-                    return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
-                                                            currentInfo.x[:zg]' * x_interior[:zg] - 
-                                                            currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
-                else
-                    return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
-                                                    currentInfo.x[:zg]' * ẑ[:zg] - 
-                                                    currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
-                end
-            end
-        end
+        # # if the speed is too slow, we terminate it
+        # if iter > 20
+        #     iter_significance = abs(gap_list[iter] - sum(gap_list[iter-9:iter])/10)
+        #     if iter_significance ≤ 1. # Δ * 1e-3 && currentInfo.G[1] ≤ 0
+        #         @info "Termination -- Progress ($iter_significance) compared to gap ($Δ) is too slow."
+        #         if Enhanced_Cut
+        #             return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
+        #                                                     currentInfo.x[:zg]' * x_interior[:zg] - 
+        #                                                     currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
+        #         else
+        #             return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+        #                                             currentInfo.x[:zg]' * ẑ[:zg] - 
+        #                                             currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+        #         end
+        #     end
+        # end
 
         ## stop rule
-        if ( Δ < threshold * 1e3 && currentInfo.G[1] ≤ threshold * 1e2 ) || iter > max_iter
+        if ( Δ < threshold && currentInfo.G[1] ≤ threshold * 1e-1 ) || iter > max_iter
             if Enhanced_Cut
                 return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
                                                         currentInfo.x[:zg]' * x_interior[:zg] - 

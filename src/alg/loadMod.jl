@@ -8,7 +8,7 @@ using Distributed, ParallelDataTransfer
 # using InteractiveDynamics
 # using CairoMakie
 # using Geodesy
-using CSV, DataFrames
+using CSV, DataFrames, Printf
 
 
 const GRB_ENV = Gurobi.Env()
@@ -38,7 +38,7 @@ addprocs(4)
     using Statistics, StatsBase, Random, Dates
     using Distributed, ParallelDataTransfer
     using Distributions
-    using DataFrames
+    using DataFrames, Printf
 
     # using Agents, Distributions
     # using CSV, Geodesy

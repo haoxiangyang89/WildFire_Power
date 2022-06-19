@@ -53,7 +53,6 @@ function SDDiP_algorithm( ;
                                                     )
     end 
 
-    println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
         M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
@@ -75,18 +74,21 @@ function SDDiP_algorithm( ;
                                     obj_value = JuMP.objective_value(forwardInfo.model));  ## returen [state_variable, first_stage value, objective_value(Q)]
             LB = Stage1_collection[k].obj_value;
             if i > 1
-                gap = round((OPT-LB)/OPT * 100 ,digits = 2);
+                gap = round((UB-LB)/UB * 100 ,digits = 2);
                 gapString = string(gap,"%");
                 push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
-
-                @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
-                if OPT-LB <= 1e-3 * OPT || i > max_iter
+                @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+                if UB-LB <= 1e-2 * UB || i > max_iter
                     # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
                     return Dict(:solHistory => sddipResult, 
                                     :solution => Stage1_collection[k], 
                                     :gapHistory => gapList, 
                                     :cutHistory => cut_collection) 
                 end
+            
+            else
+                println("---------------------------------- Iteration Info ------------------------------------")
+                println("Iter |   LB                              UB                             gap")
             end
 
 
@@ -133,15 +135,13 @@ function SDDiP_algorithm( ;
                 f_star_value = Stage2_collection[ω]
 
 
-                if (OPT-LB)/LB <= 1e-2
-                    λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
+                if (UB-LB)/LB <= 2e-2
+                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
                 else
-                    λ_value = .03; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 1e-6 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 100, Output, Output_Gap);
+                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-2 * Stage2_collection[ω]; 
+                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 1e2, Output, Output_Gap);
                 end
-                λ_value = .03; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-6 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 10, Output, Output_Gap);
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
                                                                     f_star_value, randomVariables,                 
@@ -188,3 +188,4 @@ function SDDiP_algorithm( ;
     end
 
 end
+

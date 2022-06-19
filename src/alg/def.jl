@@ -114,7 +114,7 @@ end
 
 struct LevelSetMethodParam
     μ             ::Float64                     ## param for adjust α
-    λ             ::Float64                     ## param for adjust level
+    λ             ::Union{Float64, Nothing}     ## param for adjust level
     threshold     ::Float64                     ## threshold for Δ
     nxt_bound     ::Float64                     ## lower bound for solving next iteration point π
     max_iter      ::Int64     
