@@ -21,8 +21,8 @@ function backward_stage2_optimize!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => 0, 
-                "Threads" => 0
-                                        ) 
+                "Threads" => 0,
+                "MIPGap" => 1e-4    ) 
                 )
                 
 
@@ -215,7 +215,8 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                         ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}, f_star_value::Float64,
                                         randomVariables::RandomVariables;                          ## realization of the random time
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
-                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true
+                                        ϵ::Float64 = 1e-4, interior_value::Float64 = 0.5, Enhanced_Cut::Bool = true, 
+                                        x_interior::Union{Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}, Nothing} = nothing
                                         )
 
     ## ==================================================== auxiliary function for function information ==================================================== ##
@@ -223,16 +224,12 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap);
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω);
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L);
-
-    x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
-                                                :zg => [interior_value for i in 1:length(G)], 
-                                                :zl => [interior_value for i in 1:length(L)]
-                                                );
-
-    # x_interior= Dict{Symbol, Vector{Float64}}(:zb => [.8 for i in 1:length(B)] .- .3 * ẑ[:zb], 
-    #                                             :zg => [.8 for i in 1:length(G)] .- .3 * ẑ[:zg], 
-    #                                             :zl => [.8 for i in 1:length(L)] .- .3 * ẑ[:zl]
-    #                                             );
+    if x_interior == nothing 
+        x_interior= Dict{Symbol, Vector{Float64}}(:zb => [interior_value for i in 1:length(B)] , 
+                                                    :zg => [interior_value for i in 1:length(G)], 
+                                                    :zl => [interior_value for i in 1:length(L)]
+                                                    );
+    end
 
     backwardInfo = backward_stage2_optimize!(indexSets, 
                                     paramDemand, 
@@ -284,6 +281,22 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                                         ),                                  ## obj gradient
                                         Dict(1 => negative_∇F )                                             ## constraint gradient
                                         );
+            # currentInfo = CurrentInfo( x₀,                                                                 ## current point
+            #                             - F - 
+            #                                     x₀[:zb]' * (x_interior[:zb] .- ẑ[:zb]) - 
+            #                                     x₀[:zg]' * (x_interior[:zg] .- ẑ[:zg]) - 
+            #                                     x₀[:zl]' * (x_interior[:zl] .- ẑ[:zl]),                     ## obj function value
+            #                             Dict(1 => 0.0),                              ## constraint value
+            #                             Dict{Symbol, Vector{Float64}}(  :zb => negative_∇F[:zb] .- (x_interior[:zb] .- ẑ[:zb]),
+            #                                                             :zg => negative_∇F[:zg] .- (x_interior[:zg] .- ẑ[:zg]),
+            #                                                             :zl => negative_∇F[:zl] .- (x_interior[:zl] .- ẑ[:zl])
+            #                                                             ),                                  ## obj gradient
+            #                             Dict(1 => Dict{Symbol, Vector{Float64}}( :zb => zeros(size(B)),
+            #                                                                                     :zg => zeros(size(G)),
+            #                                                                                     :zl => zeros(size(L))
+            #                                                                                     ) )                                             ## constraint gradient
+            #                             );
+            # @info "$((f_star_value - F)/f_star_value * 100)"
         else
             # objective function
             @objective(backwardInfo.Q, Min,  
@@ -375,12 +388,23 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
     @variable(nxtModel, xb[B]);
     @variable(nxtModel, xg[G]);
     @variable(nxtModel, xl[L]);
-    @variable(nxtModel, z1 ≥ - nxt_bound);
-    @variable(nxtModel, y1 ≥ - nxt_bound);
+    @variable(nxtModel, z1);
+    @variable(nxtModel, y1);
     nxtInfo = ModelInfo(nxtModel, xb, xg, xl, y1, z1);
 
-    gap_list = [];
-    iter_significance = Inf;
+    Δ = Inf
+    # gap_list = [Inf];
+    # iter_significance = Inf;
+
+    if Enhanced_Cut
+        cutInfo =  [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
+                                                currentInfo.x[:zg]' * x_interior[:zg] - 
+                                                currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
+    else
+        cutInfo = [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+                                        currentInfo.x[:zg]' * ẑ[:zg] - 
+                                        currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+    end 
 
     while true
         add_constraint(currentInfo, oracleInfo);
@@ -389,10 +413,32 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
         # formulate alpha model
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output);
+        previousΔ = Δ
         Δ, a_min, a_max = result[1], result[2], result[3];
 
-        push!(gap_list, Δ);
+        if Output_Gap # && (iter % 30 == 0)
+            if iter == 1
+                println("------------------------------------ Iteration Info --------------------------------------")
+                println("Iter |   Gap                              Objective                             Constraint")
+            end
+            @printf("%3d  |   %5.3g                         %5.3g                              %5.3g\n", iter, Δ,  - currentInfo.f ,currentInfo.G[1])
+        end
+
+        # push!(gap_list, Δ);
         
+        if round(previousΔ) > round(Δ)
+            x₀ = currentInfo.x
+            if Enhanced_Cut
+                cutInfo =  [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
+                                                        currentInfo.x[:zg]' * x_interior[:zg] - 
+                                                        currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
+            else
+                cutInfo = [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
+                                                currentInfo.x[:zg]' * ẑ[:zg] - 
+                                                currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+            end 
+        end
+
         # update α
         if μ/2 ≤ (α-a_min)/(a_max-a_min) .≤ 1-μ/2
             α = α
@@ -404,35 +450,36 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         w = α * f_star
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter) 
 
-        λ = iter ≤ 10 ? 0.05 : 0.2
+        λ = iter ≤ 10 ? 0.05 : 0.15
+        λ = iter ≥ 20 ? 0.25 : λ
         λ = iter ≥ 30 ? 0.4 : λ
         λ = iter ≥ 40 ? 0.6 : λ
-        λ = iter ≥ 50 ? 0.8 : λ
+        λ = iter ≥ 50 ? 0.7 : λ
+        λ = iter ≥ 55 ? 0.8 : λ
         
         level = w + λ * (W - w)
-
-        if Output_Gap # && (iter % 30 == 0)
-            if iter == 1
-                println("------------------------------------ Iteration Info --------------------------------------")
-                println("Iter |   Gap                              Objective                             Constraint")
-            end
-            @printf("%3d  |   %5.3g                         %5.3g                              %5.3g\n", iter, Δ,  - currentInfo.f ,currentInfo.G[1])
-        end
-
         
         ## ==================================================== next iteration point ============================================== ##
         # obtain the next iteration point
         if iter == 1
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
+            @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
+            # @constraint(nxtModel, levelObj, z1 ≤  minimum(functionHistory.f_his[j] for j in 1:iter) );
+            # @constraint(nxtModel, levelConst, y1 ≤  minimum(functionHistory.G_max_his[j] for j in 1:iter) );
         else 
-            delete(nxtModel, nxtModel[:level_constraint])
-            unregister(nxtModel, :level_constraint)
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
+            delete(nxtModel, nxtModel[:levelConstraint]);
+            unregister(nxtModel, :levelConstraint);
+            # delete(nxtModel, nxtModel[:levelObj]);
+            # unregister(nxtModel, :levelObj);
+            # delete(nxtModel, nxtModel[:levelConst]);
+            # unregister(nxtModel, :levelConst);
+            @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
+            # @constraint(nxtModel, levelObj, z1 ≤  minimum(functionHistory.f_his[j] for j in 1:iter) );
+            # @constraint(nxtModel, levelConst, y1 ≤  minimum(functionHistory.G_max_his[j] for j in 1:iter) );
         end
         add_constraint(currentInfo, nxtInfo);
-        @objective(nxtModel, Min, sum((xb .- currentInfo.x[:zb]) .* (xb .- currentInfo.x[:zb])) +
-                                   sum((xg .- currentInfo.x[:zg]) .* (xg .- currentInfo.x[:zg])) +
-                                   sum((xl .- currentInfo.x[:zl]) .* (xl .- currentInfo.x[:zl]))
+        @objective(nxtModel, Min, sum((xb .- x₀[:zb]) .* (xb .- x₀[:zb])) +
+                                   sum((xg .- x₀[:zg]) .* (xg .- x₀[:zg])) +
+                                   sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) + 2 * (α * z1 + (1 - α) * y1) / iter 
                                     );
         optimize!(nxtModel);
         st = termination_status(nxtModel)
@@ -442,7 +489,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             :zl => JuMP.value.(xl)
                                             );
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
-            # @info "Numerical Error occures! -- Build a new nxtModel"
+            @info "Numerical Error occures! -- Build a new nxtModel"
 
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
@@ -457,12 +504,18 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             @variable(nxtModel, y1);
 
             nxtInfo = ModelInfo(nxtModel, xb, xg, xl, y1, z1);
-            @constraint(nxtModel, level_constraint, α * z1 + (1 - α) * y1 ≤ level);
+            @constraint(nxtModel, levelConstraint, α * z1 + (1 - α) * y1 ≤ level);
+            # @constraint(nxtModel, levelObj, z1 ≤  minimum(functionHistory.f_his[j] for j in 1:iter) );
+            # @constraint(nxtModel, levelConst, y1 ≤  minimum(functionHistory.G_max_his[j] for j in 1:iter) );
             add_constraint(currentInfo, nxtInfo);
-            @objective(nxtModel, Min, sum((xb .- currentInfo.x[:zb]) .* (xb .- currentInfo.x[:zb])) +
-                                       sum((xg .- currentInfo.x[:zg]) .* (xg .- currentInfo.x[:zg])) +
-                                       sum((xl .- currentInfo.x[:zl]) .* (xl .- currentInfo.x[:zl]))
-                                        );
+            # @objective(nxtModel, Min, sum((xb .- currentInfo.x[:zb]) .* (xb .- currentInfo.x[:zb])) +
+            #                            sum((xg .- currentInfo.x[:zg]) .* (xg .- currentInfo.x[:zg])) +
+            #                            sum((xl .- currentInfo.x[:zl]) .* (xl .- currentInfo.x[:zl])) #+ 2 * (α * z1 + (1 - α) * y1) / iter 
+            #                             );
+             @objective(nxtModel, Min, sum((xb .- x₀[:zb]) .* (xb .- x₀[:zb])) +
+                                   sum((xg .- x₀[:zg]) .* (xg .- x₀[:zg])) +
+                                   sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) + 2 * (α * z1 + (1 - α) * y1) / iter 
+                                    );
             optimize!(nxtModel);
             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
                                                 :zg => JuMP.value.(xg), 
@@ -470,7 +523,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                                 );
         else
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
-            set_normalized_rhs( level_constraint, w + .99 * (W - w))
+            set_normalized_rhs( levelConstraint, w + .99 * (W - w))
             optimize!(nxtModel)
             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
                                             :zg => JuMP.value.(xg), 
@@ -480,7 +533,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
 
         # # if the speed is too slow, we terminate it
         # if iter > 20
-        #     iter_significance = abs(gap_list[iter] - sum(gap_list[iter-9:iter])/10)
+        #     iter_significance = abs(gap_list[iter+1] - sum(gap_list[iter-8:iter+1])/10)
         #     if iter_significance ≤ 1. # Δ * 1e-3 && currentInfo.G[1] ≤ 0
         #         @info "Termination -- Progress ($iter_significance) compared to gap ($Δ) is too slow."
         #         if Enhanced_Cut
@@ -498,13 +551,9 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         ## stop rule
         if ( Δ < threshold && currentInfo.G[1] ≤ threshold * 1e-1 ) || iter > max_iter
             if Enhanced_Cut
-                return [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
-                                                        currentInfo.x[:zg]' * x_interior[:zg] - 
-                                                        currentInfo.x[:zl]' * x_interior[:zl],  currentInfo.x] 
+                return cutInfo
             else
-                return [ - currentInfo.f - currentInfo.x[:zb]' * ẑ[:zb] - 
-                                                currentInfo.x[:zg]' * ẑ[:zg] - 
-                                                currentInfo.x[:zl]' * ẑ[:zl],  currentInfo.x] 
+                return cutInfo
             end
         end
         

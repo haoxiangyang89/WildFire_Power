@@ -51,4 +51,5 @@ sddipResultParallel = SDDiP_algorithm(; ϵ = 1e-4, max_iter = 100)
 
 
 
-
+@save "cut_collection.jld2" cut_collection
+@load "cut_collection.jld2" cut_collection

@@ -78,7 +78,7 @@ function SDDiP_algorithm( ;
                 gapString = string(gap,"%");
                 push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
                 @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-                if UB-LB <= 1e-2 * UB || i > max_iter
+                if UB-LB <= 1e-3 * UB || i > max_iter
                     # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
                     return Dict(:solHistory => sddipResult, 
                                     :solution => Stage1_collection[k], 
@@ -123,7 +123,6 @@ function SDDiP_algorithm( ;
         UB = mean(u)
 
         ####################################################### Backward Steps ###########################################################
-        
         for k in 1:M 
             for ω in keys(Ω_rv)
                 # @info "$i $ω"
@@ -135,20 +134,23 @@ function SDDiP_algorithm( ;
                 f_star_value = Stage2_collection[ω]
 
 
-                if (UB-LB)/LB <= 2e-2
+                if (UB-LB)/UB <= 1.5e-2
                     λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
                 else
-                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-2 * Stage2_collection[ω]; 
-                    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 1e2, Output, Output_Gap);
+                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
+                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
                 end
+                λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
+                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
                                                                     f_star_value, randomVariables,                 
                                                                     levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = ϵ, 
+                                                                    ϵ = 1e-4, 
                                                                     interior_value = 0.5, 
-                                                                    Enhanced_Cut = Enhanced_Cut
+                                                                    Enhanced_Cut = Enhanced_Cut,
+                                                                    x_interior = nothing
                                                                     )
                 
                 # add cut

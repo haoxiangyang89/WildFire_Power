@@ -7,7 +7,10 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 30, 
                             Enhanced_Cut::Bool = true)
     ## M: num of scenarios when doing one iteration, M = 1 for this instance
+    M = 1; ϵ = 1e-4; max_iter = 30;
     initial = now();
+    iter_time = Inf;
+    total_Time = Inf;
     @broadcast T = 2;
     
     i = 1;
@@ -31,7 +34,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    gurobiResult = gurobiOptimize!(indexSets, 
+    @time gurobiResult = gurobiOptimize!(indexSets, 
                                     paramDemand, 
                                     paramOPF, 
                                     Ω_rv,
@@ -71,8 +74,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                         :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
                         )
 
-            λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-2 * f_star_value; 
-            levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 1e2, Output, Output_Gap);
+            λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 2.5e-2 * f_star_value; 
+            levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 60, Output, Output_Gap);
 
             c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ, f_star_value, randomVariables,                 
@@ -155,7 +158,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         ##################################### Parallel Computation for backward step ###########################
         @passobj 1 workers() Stage1_collection
         for k in 1:M 
-            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...])
+            @time p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...])
             for p_index in 1:length(keys(Ω_rv))
                 # add cut
                 ω = [keys(Ω_rv)...][p_index]
