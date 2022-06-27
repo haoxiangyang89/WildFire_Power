@@ -133,16 +133,13 @@ function SDDiP_algorithm( ;
                             );
                 f_star_value = Stage2_collection[ω]
 
-
                 if (UB-LB)/UB <= 1.5e-2
-                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * Stage2_collection[ω]; 
+                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * f_star_value; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
                 else
                     λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
                     levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
                 end
-                λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
-                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
                                                                     f_star_value, randomVariables,                 
