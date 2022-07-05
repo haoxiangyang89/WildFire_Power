@@ -44,7 +44,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = 5
+        cb[b] = 5 * rand(Uniform(.8, 10))
     end
 
     for i in keys(network_data["load"])
@@ -69,7 +69,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
         smax[g] = network_data["gen"][i]["pmax"] * network_data["baseMVA"]
         smin[g] = network_data["gen"][i]["pmin"] * network_data["baseMVA"]
-        cg[g] = wsample([50, 1000, 2500], [0.2, .75, 0.05], 1)[1]                  
+        cg[g] = wsample([50 * rand(Uniform(.8, 1.2)), 1000 * rand(Uniform(.8, 1.2)), 2500 * rand(Uniform(.8, 1.2))], [0.2, .75, 0.05], 1)[1]                  
     end
 
 
@@ -83,7 +83,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
             _b[l] = 1/network_data["branch"][i]["br_x"]   ## total line charging susceptance
             W[l] = network_data["branch"][i]["rate_a"]              
-            cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length]                            
+            cl[l] = 0.285 * rand(Uniform(.8, 1.2)) *  branchInfo[parse(Int64,i), :Length]                            
         end
     end
     
@@ -260,12 +260,12 @@ function prepareScenarios( ;period_span::Int64 = 1,
         for i in 1:floor((T/period_span))
             Agents.step!(forest, agent_step!, wildfire_ignition_step!, period_span)
 
-            if sum(forest.lineFired) > 5 || sum(forest.busFired) > 0
+            if sum(forest.lineFired) > 5 && sum(forest.busFired) > 2
                 # if disruption_not_occur
                 #     τ = i * period_span
                 #     disruption_not_occur = false
                 # end
-                τ = i * period_span + ceil(rand(Uniform(0,1)) * 10)
+                τ = minimum([i * period_span + ceil(rand(Uniform(0.1,.7)) * T), T])
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
                         id = line_location_id[I.I].id

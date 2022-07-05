@@ -202,7 +202,6 @@ function forward_stage2_model!(indexSets::IndexSets,
       # @constraint(Q, [j in unique(randomVariables.Ilg[l])], νg[j] >= randomVariables.ul[l] * ẑ[:zl][l] )
       # @constraint(Q, [j in unique(randomVariables.Ill[l])], νl[j] >= randomVariables.ul[l] * ẑ[:zl][l] )
 
-
       ## constraint 3b 3c
       i = l[1]
       j = l[2]

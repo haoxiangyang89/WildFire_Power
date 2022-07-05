@@ -36,8 +36,8 @@ for ω in indexSets.Ω
     prob[ω] = 1/Ω;
 end
 
-# save("indexSets.jld2", "indexSets", indexSets)
-# save("paramOPF.jld2", "paramOPF", paramOPF)
-# save("paramDemand.jld2", "paramDemand", paramDemand)
-# save("Ω_rv.jld2", "Ω_rv", Ω_rv)
-# save("prob.jld2", "prob", prob)
+save("indexSets.jld2", "indexSets", indexSets)
+save("paramOPF.jld2", "paramOPF", paramOPF)
+save("paramDemand.jld2", "paramDemand", paramDemand)
+save("Ω_rv.jld2", "Ω_rv", Ω_rv)
+save("prob.jld2", "prob", prob)

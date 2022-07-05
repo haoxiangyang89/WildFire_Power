@@ -44,18 +44,18 @@ function SDDiP_algorithm( ;
                                                     prob,
                                                     cut_collection;  ## the index is ω
                                                     θ_bound = 0.0);
-    forward2Info_List = Dict{Int64, Forward2Info}()
+    forward2Info_List = Dict{Int64, Forward2Info}();
     for ω in indexSets.Ω
         forward2Info_List[ω] = forward_stage2_model!(indexSets, 
                                                     paramDemand,
                                                     paramOPF,
                                                     Ω_rv[ω]                        ## realization of the random time
-                                                    )
+                                                    );
     end 
 
     while true
-        t0 = now()
-        M = 1  ## since we will enumerate all of realizations, hence, we only need to set M = 1
+        t0 = now();
+        M = 1;  ## since we will enumerate all of realizations, hence, we only need to set M = 1
         Stage1_collection = Dict();  # to store every iteration results
         Stage2_collection = Dict{Int64, Float64}();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
@@ -63,7 +63,7 @@ function SDDiP_algorithm( ;
         ####################################################### Forwad Steps ###########################################################
         for k in 1:M
             ## stage 1
-            optimize!(forwardInfo.model)
+            optimize!(forwardInfo.model);
             state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(forwardInfo.zg)), 
                                                                                         :zb => round.(JuMP.value.(forwardInfo.zb)), 
                                                                                         :zl => round.(JuMP.value.(forwardInfo.zl)));
@@ -73,24 +73,6 @@ function SDDiP_algorithm( ;
                                     state_value = state_value, 
                                     obj_value = JuMP.objective_value(forwardInfo.model));  ## returen [state_variable, first_stage value, objective_value(Q)]
             LB = Stage1_collection[k].obj_value;
-            if i > 1
-                gap = round((UB-LB)/UB * 100 ,digits = 2);
-                gapString = string(gap,"%");
-                push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
-                @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-                if UB-LB <= 1e-3 * UB || i > max_iter
-                    # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
-                    return Dict(:solHistory => sddipResult, 
-                                    :solution => Stage1_collection[k], 
-                                    :gapHistory => gapList, 
-                                    :cutHistory => cut_collection) 
-                end
-            
-            else
-                println("---------------------------------- Iteration Info ------------------------------------")
-                println("Iter |   LB                              UB                             gap")
-            end
-
 
             ## stage 2
             # first_stage_decision = Stage1_collection[k].state_variable
@@ -108,19 +90,34 @@ function SDDiP_algorithm( ;
                                                     i,
                                                     ẑ,
                                                     randomVariables
-                                                    )
+                                                    );
 
                 ####################################################### solve the model and display the result ###########################################################
-                optimize!(forward2Info_List[ω].model)
-                state_obj_value    = JuMP.objective_value(forward2Info_List[ω].model)
-                Stage2_collection[ω] = state_obj_value
+                optimize!(forward2Info_List[ω].model);
+                state_obj_value    = JuMP.objective_value(forward2Info_List[ω].model);
+                Stage2_collection[ω] = state_obj_value;
                 c = c + prob[ω] * state_obj_value;
             end
             u[k] = Stage1_collection[k].state_value + c;
         end
 
         ## compute the upper bound
-        UB = mean(u)
+        UB = minimum([mean(u), UB]);
+        gap = round((UB-LB)/LB * 100 ,digits = 2);
+        gapString = string(gap,"%");
+        push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
+        if i == 1
+            println("---------------------------------- Iteration Info ------------------------------------")
+            println("Iter |   LB                              UB                             gap")
+        end
+        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+        if UB-LB <= 1e-2 * LB || i > max_iter
+            # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
+            return Dict(:solHistory => sddipResult, 
+                            :solution => Stage1_collection[1], 
+                            :gapHistory => gapList, 
+                            :cutHistory => cut_collection) 
+        end
 
         ####################################################### Backward Steps ###########################################################
         for k in 1:M 
@@ -133,13 +130,19 @@ function SDDiP_algorithm( ;
                             );
                 f_star_value = Stage2_collection[ω]
 
-                if (UB-LB)/UB <= 1.5e-2
+                if (UB-LB)/LB <= 1e-2
                     λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * f_star_value; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
                 else
-                    λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
+                    λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
                     levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
                 end
+                # coef = LevelSetMethod_Shrinkage!(indexSets, paramDemand, paramOPF, 
+                #                                                             ẑ,  
+                #                                                             f_star_value, randomVariables,                 
+                #                                                             levelSetMethodParam = levelSetMethodParam, 
+                #                                                             ϵ = 1e-4
+                #                                                             )
                 coef = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
                                                                     ẑ,  
                                                                     f_star_value, randomVariables,                 
@@ -152,29 +155,29 @@ function SDDiP_algorithm( ;
                 
                 # add cut
                 if i ≥ 3 
-                    cut_collection[ω].v[i] = Dict{Int64, Float64}()
-                    cut_collection[ω].πb[i] = Dict{Int64, Vector{Float64}}()
-                    cut_collection[ω].πg[i] = Dict{Int64, Vector{Float64}}()
-                    cut_collection[ω].πl[i] = Dict{Int64, Vector{Float64}}()
+                    cut_collection[ω].v[i] = Dict{Int64, Float64}();
+                    cut_collection[ω].πb[i] = Dict{Int64, Vector{Float64}}();
+                    cut_collection[ω].πg[i] = Dict{Int64, Vector{Float64}}();
+                    cut_collection[ω].πl[i] = Dict{Int64, Vector{Float64}}();
                 end
-                cut_collection[ω].v[i][k] = coef[1]
-                cut_collection[ω].πb[i][k] = coef[2][:zb]
-                cut_collection[ω].πg[i][k] = coef[2][:zg]
-                cut_collection[ω].πl[i][k] = coef[2][:zl]
+                cut_collection[ω].v[i][k] = coef[1];
+                cut_collection[ω].πb[i][k] = coef[2][:zb];
+                cut_collection[ω].πg[i][k] = coef[2][:zg];
+                cut_collection[ω].πl[i][k] = coef[2][:zl];
             end
         end
         
         ########################################################### add cut ###############################################################
         # add cut for value functions 
         for ω in indexSets.Ω
-            cutCoefficient = cut_collection[ω]
-            ωk = length(keys(cutCoefficient.v[1]))  ## scenario num
-            τ = Ω_rv[ω].τ
+            cutCoefficient = cut_collection[ω];
+            ωk = length(keys(cutCoefficient.v[1]));  ## scenario num
+            τ = Ω_rv[ω].τ;
             @constraint(forwardInfo.model, [m in 1:ωk], forwardInfo.θ[ω] .≥ cutCoefficient.v[i][m] + 
                                                         cutCoefficient.πb[i][m]' * forwardInfo.zb[:, τ-1] +
                                                         cutCoefficient.πg[i][m]' * forwardInfo.zg[:, τ-1] +
                                                         cutCoefficient.πl[i][m]' * forwardInfo.zl[:, τ-1]
-                                                        )
+                                                        );
         end 
     
 

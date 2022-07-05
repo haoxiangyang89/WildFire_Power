@@ -74,7 +74,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                         :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
                         )
 
-            λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 2.5e-2 * f_star_value; 
+            λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
             levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 60, Output, Output_Gap);
 
             c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
