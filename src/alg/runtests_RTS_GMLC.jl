@@ -7,8 +7,8 @@ branchInfo = CSV.read("data/RTS_GMLC/branch.csv", DataFrame);
 WFPI_file = CSV.read("data/RTS_GMLC/RTS_GMLC_WFPI_with_Mean.csv", DataFrame);
 WFPI_Info = WFPI_file[:, [:From_Bus, :To_Bus, :Mean]];
 
-T = 24;
-Ω = 20; ## Int
+T = 48;
+Ω = 50; ## Int
 (indexSets, paramOPF, paramDemand) = prepareIndexSets(network_data, T, Ω);
 
 

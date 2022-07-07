@@ -296,7 +296,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             #     sum(paramDemand.cl[l] * backwardInfo.νl[l] for l in indexSets.L) -
             #     x₀[:zb]' * backwardInfo.zb - x₀[:zg]' * backwardInfo.zg - x₀[:zl]' * backwardInfo.zl
             #     + paramDemand.penalty * backwardInfo.slack_variable_b - paramDemand.penalty * backwardInfo.slack_variable_c);
-            # set_objective_function(backwardInfo.Q, new_objective);
+            #     set_objective_function(backwardInfo.Q, new_objective);
 
             # set_objective_coefficient(backwardInfo.Q, backwardInfo.slack_variable_c, 0)
             # @objective(backwardInfo.Q, Min, 2 * backwardInfo.slack_variable_c)
@@ -463,7 +463,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         add_constraint(currentInfo, nxtInfo);
         @objective(nxtModel, Min, sum((xb .- x₀[:zb]) .* (xb .- x₀[:zb])) +
                                    sum((xg .- x₀[:zg]) .* (xg .- x₀[:zg])) +
-                                   sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) + 2 * (α * z1 + (1 - α) * y1) * τₖ 
+                                   sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
         optimize!(nxtModel);
         st = termination_status(nxtModel)
@@ -493,7 +493,7 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
             add_constraint(currentInfo, nxtInfo);
              @objective(nxtModel, Min, sum((xb .- x₀[:zb]) .* (xb .- x₀[:zb])) +
                                    sum((xg .- x₀[:zg]) .* (xg .- x₀[:zg])) +
-                                   sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) + 2 * (α * z1 + (1 - α) * y1) * τₖ 
+                                   sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
             optimize!(nxtModel);
             x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 

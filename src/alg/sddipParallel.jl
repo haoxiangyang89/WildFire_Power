@@ -9,8 +9,8 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     ## M: num of scenarios when doing one iteration, M = 1 for this instance
     M = 1; ϵ = 1e-4; max_iter = 30;
     initial = now();
-    iter_time = Inf;
-    total_Time = Inf;
+    iter_time = 0.0;
+    total_Time = 0.0;
     @broadcast T = 2;
     
     i = 1;
@@ -74,7 +74,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                         :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
                         )
 
-            λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
+            λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 1e-2 * f_star_value; 
             levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 60, Output, Output_Gap);
 
             c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
@@ -107,25 +107,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                     state_value = state_value, 
                                     obj_value = JuMP.objective_value(forwardInfo.model));  ## returen [state_variable, first_stage value, objective_value(Q)]
             LB = Stage1_collection[k].obj_value;
-            if i > 1
-                gap = round((UB-LB)/UB * 100 ,digits = 2);
-                gapString = string(gap,"%");
-                push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
-                @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
-                if UB-LB <= 1e-2 * UB || i > max_iter
-                    # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
-                    return Dict(:solHistory => sddipResult, 
-                                    :solution => Stage1_collection[k], 
-                                    :gapHistory => gapList, 
-                                    :cutHistory => cut_collection) 
-                end
             
-            else
-                println("---------------------------------- Iteration Info ------------------------------------")
-                println("Iter |   LB                              UB                             gap")
-            end
-
-
             ## stage 2
             # first_stage_decision = Stage1_collection[k].state_variable
             c = 0.0
@@ -154,11 +136,27 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         end
 
         ## compute the upper bound
-        UB = mean(u)
+        UB = minimum([mean(u), UB]);
+        gap = round((UB-LB)/LB * 100 ,digits = 2);
+        gapString = string(gap,"%");
+        push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
+        if i == 1
+            println("---------------------------------- Iteration Info ------------------------------------")
+            println("Iter |   LB                              UB                             gap")
+        end
+        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+        if UB-LB <= 1e-2 * LB || i > max_iter
+            # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
+            return Dict(:solHistory => sddipResult, 
+                            :solution => Stage1_collection[1], 
+                            :gapHistory => gapList, 
+                            :cutHistory => cut_collection) 
+        end
+
         ##################################### Parallel Computation for backward step ###########################
         @passobj 1 workers() Stage1_collection
         for k in 1:M 
-            @time p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...])
+            @time p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...]);
             for p_index in 1:length(keys(Ω_rv))
                 # add cut
                 ω = [keys(Ω_rv)...][p_index]

@@ -204,7 +204,7 @@ network_data = PowerModels.parse_file("/Users/aaron/matpower7.1/data/case30.m")
 
 ## construct _prepareIndexSets = prepareIndexSets(D, G, L, B ,3, [1,2,3,4])
 T = 24
-Ω = 20
+Ω = 10
 pub = .1
 pug = .1
 pul = .1

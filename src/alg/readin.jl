@@ -44,13 +44,13 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = 5 * rand(Uniform(.8, 10))
+        cb[b] = 5 * rand(Uniform(.8, 1.2))
     end
 
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = 10^rand(Uniform(0, 1)) * 1e2                   ## priority level of load d
+        w[d] = 5^rand(Uniform(0, 1))                          ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)

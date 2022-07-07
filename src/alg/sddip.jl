@@ -134,7 +134,7 @@ function SDDiP_algorithm( ;
                     λ_value = nothing; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-5 * f_star_value; 
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
                 else
-                    λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 5e-4 * f_star_value; 
+                    λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 5e-2 * f_star_value; 
                     levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
                 end
                 # coef = LevelSetMethod_Shrinkage!(indexSets, paramDemand, paramOPF, 
