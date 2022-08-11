@@ -33,11 +33,11 @@ end
 include("src/alg/sddipParallel.jl") 
 
 using JLD2, FileIO
-indexSets = load("src/test/RTS_48_50/indexSets.jld2")["indexSets"]
-paramOPF = load("src/test/RTS_48_50/paramOPF.jld2")["paramOPF"]
-paramDemand = load("src/test/RTS_48_50/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("src/test/RTS_48_50/Ω_rv.jld2")["Ω_rv"]
-prob = load("src/test/RTS_48_50/prob.jld2")["prob"]
+indexSets = load("src/testData/RTS_48_50/indexSets.jld2")["indexSets"]
+paramOPF = load("src/testData/RTS_48_50/paramOPF.jld2")["paramOPF"]
+paramDemand = load("src/testData/RTS_48_50/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("src/testData/RTS_48_50/Ω_rv.jld2")["Ω_rv"]
+prob = load("src/testData/RTS_48_50/prob.jld2")["prob"]
 @passobj 1 workers() indexSets
 @passobj 1 workers() paramOPF
 @passobj 1 workers() paramDemand

@@ -46,12 +46,12 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = network_data["load"][i]["pd"] * 1e4                     ## priority level of load d
+        w[d] = network_data["load"][i]["pd"] * network_data["baseMVA"]                     ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
-            demand = network_data["load"][i]["pd"] * (1 + .1 * t)
+            demand = network_data["load"][i]["pd"] * (1 + rand(Uniform(-.45, 0)))      ## https://github.com/GridMod/RTS-GMLC/tree/master/RTS_Data/timeseries_data_files
             Demand[t][d] = demand
         end
     end
@@ -63,8 +63,8 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
         push!(G, g)
         push!(Gᵢ[b], g)
 
-        smax[g] = network_data["gen"][i]["pmax"]
-        smin[g] = network_data["gen"][i]["pmin"]
+        smax[g] = network_data["gen"][i]["pmax"] * network_data["baseMVA"]
+        smin[g] = network_data["gen"][i]["pmin"] * network_data["baseMVA"]
         cg[g] = wsample([500., 1050., 1500., 2000.], [.15, .4, .25, .2], 1)[1]                                ############# need to revis
     end
 
@@ -77,7 +77,7 @@ function prepareIndexSets(network_data::Dict{String, Any} ,T::Int64, Ω::Int64;
         push!(in_L[l[2]], l[1])
 
         _b[l] = network_data["branch"][i]["b_fr"]   ## total line charging susceptance
-        W[l] = network_data["branch"][i]["rate_a"]              
+        W[l] = network_data["branch"][i]["rate_a"] * network_data["baseMVA"]           
         cl[l] = wsample([50., 100., 150., 200.], [.25, .3, .25, .2], 1)[1]                               ############# need to revise
     end
 

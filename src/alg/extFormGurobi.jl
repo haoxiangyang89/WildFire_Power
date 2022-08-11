@@ -6,7 +6,7 @@ function gurobiOptimize!(indexSets::IndexSets,
                             paramDemand::ParamDemand, 
                             paramOPF::ParamOPF, 
                             Ω_rv::Dict{Int64, RandomVariables},
-                            prob::Dict{Int64, Float64})  
+                            prob::Dict{Int64, Float64}; timelimit::Int64 = 6000)  
 
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω) 
@@ -16,7 +16,7 @@ function gurobiOptimize!(indexSets::IndexSets,
                                           "OutputFlag" => 0, 
                                           "Threads" =>0) 
                                           )
-    set_optimizer_attribute(model, "TimeLimit", 6000)
+    set_optimizer_attribute(model, "TimeLimit", timelimit)
     ## the first stage variables
     @variable(model, θ_angle[B, 1:T])      ## phase angle of the bus i
     @variable(model, P[L, 1:T] >= 0)       ## real power flow on line l; elements in L is Tuple (i, j)

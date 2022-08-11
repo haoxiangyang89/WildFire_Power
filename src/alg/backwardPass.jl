@@ -442,12 +442,12 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 10 ? 0.05 : 0.15;
-        λ = iter ≥ 20 ? 0.25 : λ;
-        λ = iter ≥ 28 ? 0.4 : λ;
-        λ = iter ≥ 38 ? 0.6 : λ;
-        λ = iter ≥ 48 ? 0.7 : λ;
-        λ = iter ≥ 55 ? 0.8 : λ;
+        λ = iter ≤ 8 ? 0.05 : 0.15;
+        λ = iter ≥ 15 ? 0.25 : λ;
+        λ = iter ≥ 25 ? 0.4 : λ;
+        λ = iter ≥ 35 ? 0.6 : λ;
+        λ = iter ≥ 40 ? 0.7 : λ;
+        λ = iter ≥ 45 ? 0.8 : λ;
         
         level = w + λ * (W - w);
         
@@ -511,8 +511,8 @@ function LevelSetMethod_optimization!(  indexSets::IndexSets,
                                             );   
         end
 
-        ## stop rule
-        if ( Δ < threshold && currentInfo.G[1] ≤ threshold * 1e-1 ) || iter > max_iter
+        ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
+        if ( Δ ≤ (- currentInfo.f)/15 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
             return cutInfo
         end
         

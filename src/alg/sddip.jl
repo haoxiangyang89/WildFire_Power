@@ -8,7 +8,8 @@ function SDDiP_algorithm( ;
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
                             paramOPF::ParamOPF = paramOPF,
-                            ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 100)
+                            ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 100, 
+                            OPT::Union{Float64, Nothing} = nothing)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
@@ -26,17 +27,17 @@ function SDDiP_algorithm( ;
     end
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
-    col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64];
+    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Float64];
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    @time gurobiResult = gurobiOptimize!(indexSets, 
-                                    paramDemand, 
-                                    paramOPF, 
-                                    Ω_rv,
-                                    prob);  
-    OPT = gurobiResult.OPT;
-    
+    # @time gurobiResult = gurobiOptimize!(indexSets, 
+    #                                 paramDemand, 
+    #                                 paramOPF, 
+    #                                 Ω_rv,
+    #                                 prob);  
+    # OPT = gurobiResult.OPT;
+    OPT = nothing;
     forwardInfo = forward_stage1_model!(indexSets, 
                                                     paramDemand, 
                                                     paramOPF, 
@@ -72,7 +73,7 @@ function SDDiP_algorithm( ;
             Stage1_collection[k] = (state_variable = state_variable, 
                                     state_value = state_value, 
                                     obj_value = JuMP.objective_value(forwardInfo.model));  ## returen [state_variable, first_stage value, objective_value(Q)]
-            LB = Stage1_collection[k].obj_value;
+            LB = maximum([Stage1_collection[k].obj_value, 1]);
 
             ## stage 2
             # first_stage_decision = Stage1_collection[k].state_variable
@@ -135,7 +136,7 @@ function SDDiP_algorithm( ;
                     levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
                 else
                     λ_value = nothing; Output = 0; Output_Gap = true; Enhanced_Cut = true; threshold = 5e-2 * f_star_value; 
-                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 60, Output, Output_Gap);
+                    levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 30, Output, Output_Gap);
                 end
                 # coef = LevelSetMethod_Shrinkage!(indexSets, paramDemand, paramOPF, 
                 #                                                             ẑ,  

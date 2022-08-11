@@ -5,9 +5,9 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                             paramOPF::ParamOPF; 
                             levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam,
                             ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 30, 
-                            Enhanced_Cut::Bool = true)
+                            OPT::Union{Float64, Nothing} = nothing)
     ## M: num of scenarios when doing one iteration, M = 1 for this instance
-    M = 1; ϵ = 1e-4; max_iter = 30;
+    M = 1; ϵ = 1e-3; max_iter = 30;
     initial = now();
     iter_time = 0.0;
     total_Time = 0.0;
@@ -30,17 +30,17 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     end
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
-    col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64];
+    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Float64];
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    @time gurobiResult = gurobiOptimize!(indexSets, 
-                                    paramDemand, 
-                                    paramOPF, 
-                                    Ω_rv,
-                                    prob);  
-    OPT = gurobiResult.OPT;
-    
+    # @time gurobiResult = gurobiOptimize!(indexSets, 
+    #                                 paramDemand, 
+    #                                 paramOPF, 
+    #                                 Ω_rv,
+    #                                 prob);  
+    # OPT = gurobiResult.OPT;
+    OPT = nothing;
     forwardInfo = forward_stage1_model!(indexSets, 
                                                     paramDemand, 
                                                     paramOPF, 
@@ -126,7 +126,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                                     randomVariables
                                                     )
 
-                ####################################################### solve the model and display the result ###########################################################
+                ####################################################### solve the model and display the results ###########################################################
                 optimize!(forward2Info_List[ω].model)
                 state_obj_value    = JuMP.objective_value(forward2Info_List[ω].model)
                 Stage2_collection[ω] = state_obj_value

@@ -55,7 +55,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
-            demand = network_data["load"][i]["pd"] * network_data["baseMVA"] * (1 + rand(Uniform(-.15, .15)))
+            demand = network_data["load"][i]["pd"] * network_data["baseMVA"] * (1 + rand(Uniform(-.45, 0)))
             Demand[t][d] = demand
         end
     end
@@ -82,7 +82,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
             push!(in_L[l[2]], l[1])
 
             _b[l] = 1/network_data["branch"][i]["br_x"]   ## total line charging susceptance
-            W[l] = network_data["branch"][i]["rate_a"]              
+            W[l] = network_data["branch"][i]["rate_a"] * network_data["baseMVA"]         
             cl[l] = 0.285 * rand(Uniform(.8, 1.2)) *  branchInfo[parse(Int64,i), :Length]                            
         end
     end
@@ -265,7 +265,8 @@ function prepareScenarios( ;period_span::Int64 = 1,
                 #     τ = i * period_span
                 #     disruption_not_occur = false
                 # end
-                τ = minimum([i * period_span + ceil(rand(Uniform(0.1,.7)) * T), T])
+                # τ = minimum([i * period_span + ceil(rand(Uniform(0.1,.7)) * T), T])
+                τ = ceil(rand(Uniform(0.4,.9)) * T)
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
                         id = line_location_id[I.I].id
