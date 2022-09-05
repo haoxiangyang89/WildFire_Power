@@ -22,8 +22,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
 
     _b = Dict{Tuple{Int64, Int64}, Float64}()                   ## total line charging susceptance
-    θmax = - 3.14
-    θmin = 3.14
+    θmax = 100
+    θmin = - 100
     W = Dict{Tuple{Int64, Int64}, Float64}()
     smax = Dict{Int64, Float64}()
     smin = Dict{Int64, Float64}()
@@ -44,18 +44,18 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         Gᵢ[b]    = Vector{Int64}()
         out_L[b] = Vector{Int64}()
         in_L[b]  = Vector{Int64}()
-        cb[b] = 5 * rand(Uniform(.8, 1.2))
+        cb[b] = 5
     end
 
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = 5^rand(Uniform(0, 1))                          ## priority level of load d
+        w[d] = round(100^rand(Uniform(0.1, 1)))                         ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
-            demand = network_data["load"][i]["pd"] * network_data["baseMVA"] * (1 + rand(Uniform(-.45, 0)))
+            demand = network_data["load"][i]["pd"]
             Demand[t][d] = demand
         end
     end
@@ -69,7 +69,7 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
 
         smax[g] = network_data["gen"][i]["pmax"] * network_data["baseMVA"]
         smin[g] = network_data["gen"][i]["pmin"] * network_data["baseMVA"]
-        cg[g] = wsample([50 * rand(Uniform(.8, 1.2)), 1000 * rand(Uniform(.8, 1.2)), 2500 * rand(Uniform(.8, 1.2))], [0.2, .75, 0.05], 1)[1]                  
+        cg[g] = wsample([50, 1000, 2500], [0.2, .75, 0.05], 1)[1]                  
     end
 
 
@@ -81,9 +81,9 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
             push!(out_L[l[1]], l[2])
             push!(in_L[l[2]], l[1])
 
-            _b[l] = 1/network_data["branch"][i]["br_x"]   ## total line charging susceptance
-            W[l] = network_data["branch"][i]["rate_a"] * network_data["baseMVA"]         
-            cl[l] = 0.285 * rand(Uniform(.8, 1.2)) *  branchInfo[parse(Int64,i), :Length]                            
+            _b[l] = - 1/network_data["branch"][i]["br_x"]                          ## total line charging susceptance
+            W[l] = network_data["branch"][i]["rate_a"]         
+            cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length]                            
         end
     end
     
