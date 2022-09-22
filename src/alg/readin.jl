@@ -67,8 +67,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         push!(G, g)
         push!(Gᵢ[b], g)
 
-        smax[g] = network_data["gen"][i]["pmax"] * network_data["baseMVA"]
-        smin[g] = network_data["gen"][i]["pmin"] * network_data["baseMVA"]
+        smax[g] = network_data["gen"][i]["pmax"]
+        smin[g] = network_data["gen"][i]["pmin"]
         cg[g] = wsample([50, 1000, 2500], [0.2, .75, 0.05], 1)[1]                  
     end
 

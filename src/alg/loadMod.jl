@@ -24,6 +24,8 @@ include("src/alg/sddip.jl")
 # include("src/alg/CellularAutomaton.jl")
 # include("src/alg/readin.jl")
 # include("src/alg/runtests_RTS_GMLC.jl")
+
+## RTS test
 indexSets = load("src/testData/RTS_24_2/indexSets.jld2")["indexSets"]
 paramOPF = load("src/testData/RTS_24_2/paramOPF.jld2")["paramOPF"]
 paramDemand = load("src/testData/RTS_24_2/paramDemand.jld2")["paramDemand"]
@@ -35,4 +37,10 @@ sddipResult = SDDiP_algorithm(; ϵ = 1e-4, max_iter = 100)
 @load "src/testData/RTS_24_2/enhancedRTS.jld2" sddipResult
 
 # using Latexify
+# latexify(df; env=:table, latex=false)
+
+# for i in [1,2,3,4,6,7]
+# sddipResult[:,i] = round.(sddipResult[:,i], digits = 1)
+# end
+# df = sddipResult[:,[2,4,5,7]]
 # latexify(df; env=:table, latex=false)

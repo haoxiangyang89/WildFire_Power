@@ -14,8 +14,8 @@ function backward_stage2_optimize!(indexSets::IndexSets,
                                     ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
                                     randomVariables::RandomVariables;                          ## realization of the random time
                                     timelimit::Int64 = 5, 
-                                    outputFlag::Int64 = 0
-                                    # π::Dict{Symbol, Vector{Float64}}
+                                    outputFlag::Int64 = 0,
+                                    tightness::Bool = false
                                     )
 
     # (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
@@ -42,9 +42,16 @@ function backward_stage2_optimize!(indexSets::IndexSets,
     @variable(Q, νg[indexSets.G], Bin)
     @variable(Q, νl[indexSets.L], Bin)
 
-    @variable(Q, 0 ≤ zg[indexSets.G] ≤ 1)
-    @variable(Q, 0 ≤ zb[indexSets.B] ≤ 1)
-    @variable(Q, 0 ≤ zl[indexSets.L] ≤ 1)
+    if tightness
+        @variable(Q, zg[indexSets.G], Bin)
+        @variable(Q, zb[indexSets.B], Bin)
+        @variable(Q, zl[indexSets.L], Bin)
+    else 
+        @variable(Q, 0 ≤ zg[indexSets.G] ≤ 1)
+        @variable(Q, 0 ≤ zb[indexSets.B] ≤ 1)
+        @variable(Q, 0 ≤ zl[indexSets.L] ≤ 1)
+    end
+
 
     ## constraint k l m 
     @constraint(Q, [i in indexSets.B], yb[i] ≤ zb[i] )
@@ -211,14 +218,13 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
                                         levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam, 
                                         cutSelection::String = cutSelection,## "ELC", "LC", "ShrinkageLC" 
                                         x_interior::Union{Dict{Symbol, Vector{Float64}}, Nothing} = nothing, 
-                                        x₀::Dict{Symbol, Vector{Float64}} = x₀
+                                        x₀::Dict{Symbol, Vector{Float64}} = x₀, tightness::Bool = false
                                         )
 
     ## ==================================================== auxiliary function for function information ==================================================== ##
     # μ larger is better
     (μ, λ, threshold, nxt_bound, max_iter, Output, Output_Gap) = (levelSetMethodParam.μ, levelSetMethodParam.λ, levelSetMethodParam.threshold, levelSetMethodParam.nxt_bound, levelSetMethodParam.max_iter, levelSetMethodParam.Output,levelSetMethodParam.Output_Gap);
-    (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω);
-    (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L);
+    (D, G, L, B) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B);
 
     backwardInfo = backward_stage2_optimize!(indexSets, 
                                     paramDemand, 
@@ -226,7 +232,8 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
                                     ẑ,
                                     randomVariables;                       ## realization of the random time
                                     outputFlag = 0,
-                                    timelimit = 8
+                                    timelimit = 8,
+                                    tightness = tightness
                                     );
 
 
@@ -254,9 +261,9 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
             optimize!(backwardInfo.model)
 
             F  = JuMP.objective_value(backwardInfo.model);
-            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ round.(JuMP.value.(backwardInfo.zb)),
-                                                                                :zg => - ẑ[:zg] .+ round.(JuMP.value.(backwardInfo.zg)),
-                                                                                :zl => - ẑ[:zl] .+ round.(JuMP.value.(backwardInfo.zl))
+            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ round.(JuMP.value.(backwardInfo.zb), digits = 5),
+                                                                                :zg => - ẑ[:zg] .+ round.(JuMP.value.(backwardInfo.zg), digits = 5),
+                                                                                :zl => - ẑ[:zl] .+ round.(JuMP.value.(backwardInfo.zl), digits = 5)
                                                                                 );
 
             currentInfo = CurrentInfo( x₀,                                                                 ## current point
@@ -283,9 +290,9 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
             ## ==================================================== solve the model and display the result ==================================================== ##
             optimize!(backwardInfo.model)
             F  = JuMP.objective_value(backwardInfo.model)
-            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => round.(JuMP.value.(backwardInfo.zb)),
-                                                                                :zg => round.(JuMP.value.(backwardInfo.zg)),
-                                                                                :zl => round.(JuMP.value.(backwardInfo.zl))
+            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => round.(JuMP.value.(backwardInfo.zb), digits = 5),
+                                                                                :zg => round.(JuMP.value.(backwardInfo.zg), digits = 5),
+                                                                                :zl => round.(JuMP.value.(backwardInfo.zl), digits = 5)
                                                                                 );
 
             currentInfo = CurrentInfo( x₀,                                                                 ## current point
@@ -314,9 +321,9 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
             optimize!(backwardInfo.model)
 
             F  = JuMP.objective_value(backwardInfo.model);
-            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ round.(JuMP.value.(backwardInfo.zb)),
-                                                                                :zg => - ẑ[:zg] .+ round.(JuMP.value.(backwardInfo.zg)),
-                                                                                :zl => - ẑ[:zl] .+ round.(JuMP.value.(backwardInfo.zl))
+            negative_∇F = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zb => - ẑ[:zb] .+ round.(JuMP.value.(backwardInfo.zb), digits = 5),
+                                                                                :zg => - ẑ[:zg] .+ round.(JuMP.value.(backwardInfo.zg), digits = 5),
+                                                                                :zl => - ẑ[:zl] .+ round.(JuMP.value.(backwardInfo.zl), digits = 5)
                                                                                 );
 
             currentInfo = CurrentInfo( x₀,                                                                                                ## current point
@@ -334,7 +341,7 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
     α = 1/2;
 
     # trajectory
-    currentInfo, currentInfo_f = compute_f_G(x₀; cutSelection = cutSelection);
+    currentInfo, currentInfo_f = compute_f_G(x₀; cutSelection = cutSelection, f_star_value = f_star_value);
 
     functionHistory = FunctionHistory(  Dict(1 => currentInfo.f), 
                                         Dict(1 => maximum(currentInfo.G[k] for k in keys(currentInfo.G)) )
@@ -393,14 +400,13 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
     end 
 
     while true
-        # t0 = now();
         add_constraint(currentInfo, oracleInfo);
         optimize!(oracleModel);
         f_star = JuMP.objective_value(oracleModel);
 
         # formulate alpha model
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output);
-        previousΔ = Δ;
+        previousΔ = copy.(Δ);
         Δ, a_min, a_max = result[1], result[2], result[3];
 
         if Output_Gap # && (iter % 30 == 0)
@@ -408,11 +414,10 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
                 println("------------------------------------ Iteration Info --------------------------------------")
                 println("Iter |   Gap                              Objective                             Constraint")
             end
-            @printf("%3d  |   %5.3g                         %5.3g                              %5.3g\n", iter, Δ, - currentInfo.f,currentInfo.G[1])
+            @printf("%3d  |   %5.3g                         %5.3g                              %5.3g\n", iter, Δ, - currentInfo.f, currentInfo.G[1])
         end
 
         # push!(gap_list, Δ);
-
         if round(previousΔ) > round(Δ)
             x₀ = currentInfo.x; τₖ = μₖ * τₖ;
             if cutSelection == "ELC"
@@ -437,21 +442,24 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         if μ/2 ≤ (α-a_min)/(a_max-a_min) .≤ 1-μ/2
             α = α;
         else
-            α = (a_min+a_max)/2;
+            α = round.((a_min+a_max)/2, digits = 5);
         end
 
         # update level
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 8 ? 0.05 : 0.15;
-        λ = iter ≥ 15 ? 0.25 : λ;
-        λ = iter ≥ 25 ? 0.4 : λ;
-        λ = iter ≥ 35 ? 0.6 : λ;
-        λ = iter ≥ 40 ? 0.7 : λ;
-        λ = iter ≥ 45 ? 0.8 : λ;
+        λ = iter ≤ 10 ? 0.05 : 0.15;
+        λ = iter ≥ 20 ? 0.25 : λ;
+        λ = iter ≥ 30 ? 0.4 : λ;
+        λ = iter ≥ 40 ? 0.6 : λ;
+        λ = iter ≥ 50 ? 0.7 : λ;
+        λ = iter ≥ 60 ? 0.8 : λ;
+        λ = iter ≥ 70 ? 0.9 : λ;
+        λ = iter ≥ 85 ? 0.99 : λ;
+        λ = iter ≥ 90 ? 1. : λ;
         
-        level = w + λ * (W - w);
+        level = round.(w + λ * (W - w), digits = 5)
         
         ## ==================================================== next iteration point ============================================== ##
         # obtain the next iteration point
@@ -470,14 +478,13 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         optimize!(nxtModel);
         st = termination_status(nxtModel)
         if st == MOI.OPTIMAL || st == MOI.LOCALLY_SOLVED   ## local solution
-            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
-                                            :zg => JuMP.value.(xg), 
-                                            :zl => JuMP.value.(xl)
+            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => round.(JuMP.value.(xb), digits = 5) , 
+                                            :zg => round.(JuMP.value.(xg), digits = 5), 
+                                            :zl => round.(JuMP.value.(xl), digits = 5)
                                             );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         elseif st == MOI.NUMERICAL_ERROR ## need to figure out why this case happened and fix it
-            @info "Numerical Error occures! -- Build a new nxtModel"
-
+            # @info "Numerical Error occures! -- Build a new nxtModel"
             nxtModel = Model(
                 optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => Output, 
@@ -498,35 +505,33 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
                                    sum((xl .- x₀[:zl]) .* (xl .- x₀[:zl])) #+ 2 * (α * z1 + (1 - α) * y1) * τₖ 
                                     );
             optimize!(nxtModel);
-            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
-                                                :zg => JuMP.value.(xg), 
-                                                :zl => JuMP.value.(xl)
-                                                );
+            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => round.(JuMP.value.(xb), digits = 5) , 
+                                            :zg => round.(JuMP.value.(xg), digits = 5), 
+                                            :zl => round.(JuMP.value.(xl), digits = 5)
+                                            );
             λₖ = abs(dual(levelConstraint)); μₖ = λₖ + 1; 
         else
             # @info "Re-compute Next Iteration Point -- change to a safe level!"
             set_normalized_rhs( levelConstraint, w + .99 * (W - w))
             optimize!(nxtModel)
-            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => JuMP.value.(xb) , 
-                                            :zg => JuMP.value.(xg), 
-                                            :zl => JuMP.value.(xl)
-                                            );   
+            x_nxt = Dict{Symbol, Vector{Float64}}(:zb => round.(JuMP.value.(xb), digits = 5) , 
+                                            :zg => round.(JuMP.value.(xg), digits = 5), 
+                                            :zl => round.(JuMP.value.(xl), digits = 5)
+                                            );
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ abs.(currentInfo.f)/15 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
+        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
             return cutInfo
         end
         
         ## ==================================================== end ============================================== ##
         ## save the trajectory
-        currentInfo, currentInfo_f = compute_f_G(x_nxt, cutSelection = cutSelection);
+        currentInfo, currentInfo_f = compute_f_G(x_nxt, cutSelection = cutSelection, f_star_value = f_star_value);
         iter = iter + 1;
         
         functionHistory.f_his[iter] = currentInfo.f;
         functionHistory.G_max_his[iter] = maximum(currentInfo.G[k] for k in keys(currentInfo.G));
-        # t1 = now();
-        # @info "$(iter_time = (t1 - t0).value/1000)"
     end
 
 end

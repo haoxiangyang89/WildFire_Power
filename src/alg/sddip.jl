@@ -5,19 +5,19 @@
 
 function setupLevelSetMethod(ẑ, f_star_value::Float64 ; cutSelection::String = cutSelection, Output_Gap::Bool = false,  ℓ1::Real = 2, ℓ2::Real = .8, λ::Union{Real, Nothing} = .1  )
     if cutSelection == "ShrinkageLC"
-        λ_value = λ; Output = 0; threshold = 8e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 50, Output, Output_Gap);
+        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 1e2, Output, Output_Gap);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 5e-2 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 50, Output, Output_Gap);
+        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 1.5e2, Output, Output_Gap);
         x_interior = Dict{Symbol, Vector{Float64}}(:zg => ẑ[:zg] .* ℓ2  .+ (1 - ℓ2)/2, 
                                 :zb => ẑ[:zb] .* ℓ2  .+ (1 - ℓ2)/2, 
                                         :zl => ẑ[:zl] .* ℓ2  .+ (1 - ℓ2)/2
                                         );
     elseif cutSelection == "LC"
         λ_value = λ; Output = 0; threshold = 1e-5 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 10, Output, Output_Gap);
+        levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e15, 30, Output, Output_Gap);
         x_interior = nothing;
     end
 
@@ -39,9 +39,7 @@ function SDDiP_algorithm( ;
                             prob::Dict{Int64,Float64} = prob, 
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
-                            paramOPF::ParamOPF = paramOPF,
-                            ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 100, 
-                            OPT::Union{Float64, Nothing} = nothing)
+                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = 100)
     ## d: x dim
     ## M: num of scenarios when doing one iteration
     initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
@@ -135,9 +133,7 @@ function SDDiP_algorithm( ;
         end
 
         ## compute the upper bound
-        UB = minimum([mean(u), UB]);
-        gap = round((UB-LB)/UB * 100 ,digits = 2);
-        gapString = string(gap,"%");
+        UB = minimum([mean(u), UB]); gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
         if i == 1
             println("---------------------------------- Iteration Info ------------------------------------")
@@ -152,7 +148,6 @@ function SDDiP_algorithm( ;
                             :cutHistory => cut_collection) 
         end
 
-        
         # sddipResult
         ####################################################### Backward Steps ###########################################################
         for k in 1:M 
@@ -165,17 +160,17 @@ function SDDiP_algorithm( ;
                             );
                 f_star_value = Stage2_collection[ω];
 
-                cutSelection = "ShrinkageLC";                                                               ## "ELC", "LC", "ShrinkageLC" 
+                cutSelection = "ELC";                                                               ## "ELC", "LC", "ShrinkageLC" 
                 (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(ẑ, f_star_value; cutSelection = cutSelection, 
                                                                                         Output_Gap = true, 
-                                                                                            ℓ1 = 0, # or 0   ## adjust x0
-                                                                                                ℓ2 = .95, ## adjust interior points
+                                                                                            ℓ1 = 0., # or 0   ## adjust x0
+                                                                                                ℓ2 = .0, ## adjust interior points
                                                                                                 λ = nothing);  
                 coef = LevelSetMethod_optimization!(ẑ, f_star_value, randomVariables;
                                                         levelSetMethodParam = levelSetMethodParam,
                                                             cutSelection = cutSelection,            ## "ELC", "LC", "ShrinkageLC" 
                                                                 x_interior = x_interior, 
-                                                                    x₀ = x₀
+                                                                    x₀ = x₀, tightness = false
                                                     )
                 
                 # add cut
@@ -205,14 +200,8 @@ function SDDiP_algorithm( ;
                                                         );
         end 
     
-
-        t1 = now();
-        iter_time = (t1 - t0).value/1000;
-        total_Time = (t1 - initial).value/1000;
-        
-        i = i + 1;
+        t1 = now(); iter_time = (t1 - t0).value/1000; total_Time = (t1 - initial).value/1000; i = i + 1;
 
     end
 
 end
-# save("src/testData/RTS_24_50/sddipResult.jld2", "sddipResult", sddipResult)
