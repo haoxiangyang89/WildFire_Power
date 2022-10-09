@@ -1,19 +1,16 @@
-@everywhere begin 
-    λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = ϵ * Stage2_collection[ω]; 
-    levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e3, Output, Output_Gap);
-end
-
 function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables}, 
                             prob::Dict{Int64,Float64}, 
                             indexSets::IndexSets, 
                             paramDemand::ParamDemand, 
                             paramOPF::ParamOPF; 
                             levelSetMethodParam::LevelSetMethodParam = levelSetMethodParam,
-                            ϵ::Float64 = 0.001, M::Int64 = 30, max_iter::Int64 = 200, 
-                            Enhanced_Cut::Bool = true)
+                            ϵ::Float64 = 1e-4, M::Int64 = 1, max_iter::Int64 = 30, 
+                            OPT::Union{Float64, Nothing} = nothing)
     ## M: num of scenarios when doing one iteration, M = 1 for this instance
-    M = 1
+    M = 1; ϵ = 1e-3; max_iter = 30;
     initial = now();
+    iter_time = 0.0;
+    total_Time = 0.0;
     @broadcast T = 2;
     
     i = 1;
@@ -33,24 +30,24 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     end
 
     col_names = [:iter, :LB, :OPT, :UB, :gap, :time, :Time]; # needs to be a vector Symbols
-    col_types = [Int64, Float64, Float64, Float64, String, Float64, Float64];
+    col_types = [Int64, Float64, Union{Float64,Nothing}, Float64, String, Float64, Float64];
     named_tuple = (; zip(col_names, type[] for type in col_types )...);
     sddipResult = DataFrame(named_tuple); # 0×7 DataFrame
     gapList = [];
-    gurobiResult = gurobiOptimize!(indexSets, 
-                                    paramDemand, 
-                                    paramOPF, 
-                                    Ω_rv,
-                                    prob);  
-    OPT = gurobiResult.OPT;
-    
+    # @time gurobiResult = gurobiOptimize!(indexSets, 
+    #                                 paramDemand, 
+    #                                 paramOPF, 
+    #                                 Ω_rv,
+    #                                 prob);  
+    # OPT = gurobiResult.OPT;
+    OPT = nothing;
     forwardInfo = forward_stage1_model!(indexSets, 
                                                     paramDemand, 
                                                     paramOPF, 
                                                     Ω_rv,
                                                     prob,
                                                     cut_collection;  ## the index is ω
-                                                    θ_bound = 0.0);
+                                                    θ_bound = 0.0, outputFlag = 1);
     forward2Info_List = Dict{Int64, Forward2Info}()
     for ω in indexSets.Ω
         forward2Info_List[ω] = forward_stage2_model!(indexSets, 
@@ -63,7 +60,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
     ## an auxiliary function for backward iteration
 
     @everywhere begin 
-        function inner_func_backward(ω::Int64, f_star_value::Float64, Enhanced_Cut::Bool; 
+        function inner_func_backward(ω::Int64, f_star_value::Float64;
                                     indexSets::IndexSets = indexSets, 
                                     Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
                                     paramDemand::ParamDemand = paramDemand, 
@@ -76,60 +73,49 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                         :zb => Stage1_collection[1][1][:zb][:, randomVariables.τ - 1], 
                         :zl => Stage1_collection[1][1][:zl][:, randomVariables.τ - 1]
                         )
-            
-            if (OPT-LB)/LB <= 1e-4
-                λ_value = .9; Output = 0; Output_Gap = false; Enhanced_Cut = false; threshold = 1e-6 * Stage2_collection[ω]; 
-                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e2, Output, Output_Gap);
-            else
-                λ_value = .1; Output = 0; Output_Gap = false; Enhanced_Cut = true; threshold = ϵ * Stage2_collection[ω]; 
-                levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e16, 1e3, Output, Output_Gap);
-            end
 
-            c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
-                                                                    ẑ, f_star_value, randomVariables,                 
-                                                                    levelSetMethodParam = levelSetMethodParam, 
-                                                                    ϵ = ϵ, 
-                                                                    interior_value = interior_value, 
-                                                                    Enhanced_Cut = Enhanced_Cut
-                                                                    )
+            λ_value = nothing; Output = 0; Output_Gap = true; cutSelection = "ELC"; threshold = 1e-2 * f_star_value; 
+            levelSetMethodParam = LevelSetMethodParam(0.95, λ_value, threshold, 1e14, 60, Output, Output_Gap);
+
+            # c = LevelSetMethod_optimization!(indexSets, paramDemand, paramOPF, 
+            #                                                         ẑ, f_star_value, randomVariables,                 
+            #                                                         levelSetMethodParam = levelSetMethodParam, 
+            #                                                         ϵ = ϵ, 
+            #                                                         interior_value = interior_value, 
+            #                                                         cutSelection = cutSelection
+            #                                                         )
+            c = LevelSetMethod_Shrinkage!(indexSets, paramDemand, paramOPF, 
+                                                                            ẑ,  
+                                                                            f_star_value, randomVariables,                 
+                                                                            levelSetMethodParam = levelSetMethodParam, 
+                                                                            ϵ = 1e-4
+                                                                            )
             return c
         end
     end
 
-    println("---------------- print out iteration information -------------------")
     while true
         t0 = now()
         Stage1_collection = Dict();  # to store every iteration results
         Stage2_collection = Dict{Int64, Float64}();  # to store every iteration results
         u = Vector{Float64}(undef, M);  # to compute upper bound
 
-        ## Forward Step
+        ####################################################### Forwad Steps ###########################################################
         for k in 1:M
             ## stage 1
             optimize!(forwardInfo.model)
             state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(forwardInfo.zg)), 
                                                                                         :zb => round.(JuMP.value.(forwardInfo.zb)), 
-                                                                                        :zl => round.(JuMP.value.(forwardInfo.zl)))
-            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in indexSets.Ω)       ## 1a first term
+                                                                                        :zl => round.(JuMP.value.(forwardInfo.zl)));
+            state_value    = JuMP.objective_value(forwardInfo.model) - sum(prob[ω] * JuMP.value(forwardInfo.θ[ω]) for ω in indexSets.Ω);       ## 1a first term
  
             Stage1_collection[k] = (state_variable = state_variable, 
                                     state_value = state_value, 
-                                    obj_value = JuMP.objective_value(forwardInfo.model))  ## returen [state_variable, first_stage value, objective_value(Q)]
-            LB = Stage1_collection[k].obj_value;
-            if i > 1
-                gap = round((OPT-LB)/OPT * 100 ,digits = 2);
-                gapString = string(gap,"%");
-                push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
-
-                @info "iter num is $(i-1), LB is $LB, OPT is $OPT UB is $UB"
-                if OPT-LB <= ϵ * OPT || i > max_iter
-                    # println(Stage1_collection[k].state_variable[:zg])
-                    # println(gurobiResult.first_state_variable[:zg])
-                    return Dict(:solHistory => sddipResult, :solution => Stage1_collection[k], :gapHistory => gapList) 
-                end
-            end
-
+                                    obj_value = JuMP.objective_value(forwardInfo.model));  ## returen [state_variable, first_stage value, objective_value(Q)]
+            LB = maximum([Stage1_collection[k].obj_value, 0])
+            
             ## stage 2
+            # first_stage_decision = Stage1_collection[k].state_variable
             c = 0.0
             for ω in indexSets.Ω
                 randomVariables = Ω_rv[ω];
@@ -146,7 +132,7 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
                                                     randomVariables
                                                     )
 
-                ####################################################### solve the model and display the result ###########################################################
+                ####################################################### solve the model and display the results ###########################################################
                 optimize!(forward2Info_List[ω].model)
                 state_obj_value    = JuMP.objective_value(forward2Info_List[ω].model)
                 Stage2_collection[ω] = state_obj_value
@@ -156,11 +142,27 @@ function SDDiP_algorithm(Ω_rv::Dict{Int64, RandomVariables},
         end
 
         ## compute the upper bound
-        UB = mean(u)
+        UB = minimum([mean(u), UB]);
+        gap = round((UB-LB)/UB * 100 ,digits = 2);
+        gapString = string(gap,"%");
+        push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);sddipResult
+        if i == 1
+            println("---------------------------------- Iteration Info ------------------------------------")
+            println("Iter |   LB                              UB                             gap")
+        end
+        @printf("%3d  |   %5.3g                         %5.3g                              %1.3f%s\n", i, LB, UB, gap, "%")
+        if UB-LB <= 1e-2 * UB || i > max_iter
+            # Stage1_collection[1].state_variable[:zl] == gurobiResult.first_state_variable[:zl]
+            return Dict(:solHistory => sddipResult, 
+                            :solution => Stage1_collection[1], 
+                            :gapHistory => gapList, 
+                            :cutHistory => cut_collection) 
+        end
+
         ##################################### Parallel Computation for backward step ###########################
         @passobj 1 workers() Stage1_collection
         for k in 1:M 
-            p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...],  [Enhanced_Cut for i in keys(Ω_rv)])
+            @time p = pmap(inner_func_backward, [keys(Stage2_collection)...], [values(Stage2_collection)...]);
             for p_index in 1:length(keys(Ω_rv))
                 # add cut
                 ω = [keys(Ω_rv)...][p_index]
