@@ -48,47 +48,47 @@ end
 save("testData_RTS/indexSets.jld2", "indexSets", indexSets)
 save("testData_RTS/paramOPF.jld2", "paramOPF", paramOPF)
 save("testData_RTS/paramDemand.jld2", "paramDemand", paramDemand)
-save("testData_RTS/Ω_rv.jld2", "Ω_rv", Ω_rv)
+# save("testData_RTS/Ω_rv.jld2", "Ω_rv", Ω_rv)
 save("testData_RTS/prob.jld2", "prob", prob)
 
 
 
 
 
-# T = 24;
-# Ω = 5000; ## Int
-# (indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
-# (x_grid_num, y_grid_num, line_location_id, 
-#                             line_id_location, 
-#                             line_id_bus,
-#                             bus_id_location, 
-#                             bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 2, grid_length = 3000);
+T = 24;
+Ω = 5000; ## Int
+(indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
+(x_grid_num, y_grid_num, line_location_id, 
+                            line_id_location, 
+                            line_id_bus,
+                            bus_id_location, 
+                            bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 2, grid_length = 3000);
 
  
 
-# Ω_rv = prepareScenarios( ;period_span = 1, 
-#                                     T = T, 
-#                                     Ω = Ω, 
-#                                     indexSets = indexSets, line_id_bus = line_id_bus);
-# save("testData_RTS/Ω_rv5000.jld2", "Ω_rv", Ω_rv)
+Ω_rv = prepareScenarios( ;period_span = 1, 
+                                    T = T, 
+                                    Ω = Ω, 
+                                    indexSets = indexSets, line_id_bus = line_id_bus);
+save("testData_RTS/Ω_rv5000.jld2", "Ω_rv", Ω_rv)
 
 
-# T = 24;
-# Ω = 10000; ## Int
-# (indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
-# (x_grid_num, y_grid_num, line_location_id, 
-#                             line_id_location, 
-#                             line_id_bus,
-#                             bus_id_location, 
-#                             bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 2, grid_length = 3000);
+T = 24;
+Ω = 10000; ## Int
+(indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
+(x_grid_num, y_grid_num, line_location_id, 
+                            line_id_location, 
+                            line_id_bus,
+                            bus_id_location, 
+                            bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 2, grid_length = 3000);
 
  
 
-# Ω_rv = prepareScenarios( ;period_span = 1, 
-#                                     T = T, 
-#                                     Ω = Ω, 
-#                                     indexSets = indexSets, line_id_bus = line_id_bus);
-# save("testData_RTS/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
+Ω_rv = prepareScenarios( ;period_span = 1, 
+                                    T = T, 
+                                    Ω = Ω, 
+                                    indexSets = indexSets, line_id_bus = line_id_bus);
+save("testData_RTS/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
 
 # Ω_rvList = Dict()
 # for num in [20, 50, 100, 200, 500] 
