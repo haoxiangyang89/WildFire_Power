@@ -3,9 +3,10 @@
 ################################################################################################################################################
 
 
-function prepareIndexSets(  network_data::Dict{String, Any} ,
+function prepareIndexSets(  network_data::Dict{String, Any},
                                                     T::Int64,
-                                                    Ω::Int64
+                                                    Ω::Int64; 
+                                                    branchInfo::DataFrame = branchInfo
                                                     )
     
 
@@ -13,7 +14,8 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
     G = Vector{Int64}()
     B = Vector{Int64}()
 
-    L = Vector{Tuple{Int64, Int64}}()
+    L = Vector{Tuple{Int64, Int64}}() 
+    multiLines = Dict() ## record the number of lines between two nodes (especailly for double lines)
 
     Dᵢ =    Dict{Int64,Vector{Int64}}()
     Gᵢ =    Dict{Int64,Vector{Int64}}()
@@ -77,24 +79,32 @@ function prepareIndexSets(  network_data::Dict{String, Any} ,
         l = (network_data["branch"][i]["f_bus"], network_data["branch"][i]["t_bus"])
 
         if l ∉ L 
+            multiLines[l] = 1
             push!(L, l) 
             push!(out_L[l[1]], l[2])
             push!(in_L[l[2]], l[1])
 
             _b[l] = - 1/network_data["branch"][i]["br_x"]                          ## total line charging susceptance
             W[l] = network_data["branch"][i]["rate_a"]         
-            cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length]                            
+            cl[l] = 0.285 *  branchInfo[parse(Int64,i), :Length] 
+        else
+            multiLines[l] = multiLines[l] + 1
+            _b[l] = _b[l] - 1/network_data["branch"][i]["br_x"] 
+            W[l] = W[l] + network_data["branch"][i]["rate_a"] 
+            cl[l] = cl[l] + 0.285 *  branchInfo[parse(Int64,i), :Length] 
         end
+
     end
     
 
     paramOPF = ParamOPF(_b, θmax, θmin, W, smax, smin)
-    indexSets = IndexSets(D, G, unique(L), B ,T, [1:Ω...], Dᵢ, Gᵢ, out_L, in_L)
+    indexSets = IndexSets(D, G, L, B ,T, [1:Ω...], Dᵢ, Gᵢ, out_L, in_L)
     paramDemand = ParamDemand(Demand, w, cb, cg, cl, 1e4)
  
      return (indexSets = indexSets, 
              paramOPF = paramOPF, 
-             paramDemand = paramDemand)
+             paramDemand = paramDemand, 
+             multiLines = multiLines)
 end
 
 function prepareSimulation(businfo::DataFrame, branchInfo::DataFrame, WFPI_Info::DataFrame;     
@@ -140,7 +150,7 @@ function prepareSimulation(businfo::DataFrame, branchInfo::DataFrame, WFPI_Info:
     row_num = 1
     for id in 1: nrow(branchInfo)
         length = branchInfo[id, 14]
-        WFPI_value = WFPI_Info[id, 3]/5
+        WFPI_value = WFPI_Info[id, 3]/sum(WFPI_Info[:,3])   ## normalized WFPI
         from_bus = branchInfo[id, 2]
         to_bus = branchInfo[id, 3]
         line_id_bus[id] = (from_bus, to_bus)
@@ -205,7 +215,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
     in_L = indexSets.in_L;
     out_L = indexSets.out_L;
     for ω in 1:Ω 
-        τ = rand(2:T)
+        τ = 24
 
         ub = Dict{Int64, Int64}()
         ug = Dict{Int64, Int64}()
@@ -251,7 +261,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
             Ill[l] = []
         end
 
-
+        
         forest = initialize(bus_id_location, line_location_id;  griddims = (x_grid_num, y_grid_num), 
                         environmentInfo = environmentInfo, time_span = 1);
 
@@ -259,14 +269,17 @@ function prepareScenarios( ;period_span::Int64 = 1,
         # disruption_not_occur = true
         for i in 1:floor((T/period_span))
             Agents.step!(forest, agent_step!, wildfire_ignition_step!, period_span)
-
-            if sum(forest.lineFired) > 5 && sum(forest.busFired) > 2
+            # sum(forest.ignition)
+            # sum(forest.busFired)
+            # sum(forest.lineFired)
+            if sum(forest.lineFired) > 4 && sum(forest.busFired) > 3
                 # if disruption_not_occur
                 #     τ = i * period_span
                 #     disruption_not_occur = false
                 # end
                 # τ = minimum([i * period_span + ceil(rand(Uniform(0.1,.7)) * T), T])
-                τ = ceil(rand(Uniform(0.4,.9)) * T)
+                # τ = ceil(rand(Uniform(0.4,.9)) * T)
+                τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
                         id = line_location_id[I.I].id
@@ -327,7 +340,6 @@ function prepareScenarios( ;period_span::Int64 = 1,
 
 
         # to generate the random sets
-
         (x_grid_num2, y_grid_num2, line_location_id2, 
                                     line_id_location2, 
                                     line_id_bus2,
@@ -339,7 +351,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
             forest_single_component = initialize_single_component!(firedPos, bus_id_location2, line_location_id2;  
                                                                     griddims = (x_grid_num2, y_grid_num2), 
                                                                     environmentInfo = environmentInfo, 
-                                                                    time_span = 1)
+                                                                    time_span = 1, line_id_location = line_id_location2)
             Agents.step!(forest_single_component, agent_step!, wildfire_ignition_step!, 3)
             if sum(forest_single_component.lineFired) > 0
                 for I in findall(isequal(1), forest_single_component.lineFired)

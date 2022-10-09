@@ -5,10 +5,10 @@
 ## -----------------------------------  Generate the first-stage decision  ---------------------------------------- ##
 gurobiResultList = Dict{Any, Any}()
 
-indexSets = load("src/testData/indexSets.jld2")["indexSets"]
-paramOPF = load("src/testData/paramOPF.jld2")["paramOPF"]
-paramDemand = load("src/testData/paramDemand.jld2")["paramDemand"]
-Ω_rvList = load("src/testData/Ω_rvList.jld2")["Ω_rvList"]
+indexSets = load("testData_RTS/indexSets.jld2")["indexSets"]
+paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
+paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rvList = load("testData_RTS/Ω_rvList.jld2")["Ω_rvList"]
 
 Ω = 200; 
 pList = [.3, .6, .9];
@@ -33,7 +33,7 @@ for p in pList
                                         paramOPF, 
                                         Ω_rv,
                                         probList[p]; 
-                                        mipGap = 3e-2, timelimit = 3600); 
+                                        mipGap = 1e-2, timelimit = 7200); 
   end
   save("src/Experiments/WeightTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 end
@@ -51,10 +51,10 @@ save("src/Experiments/WeightTest/gurobiResultList.jld2", "gurobiResultList", gur
 ## scenario size = 200
 totalCost = Dict{Tuple{Int64, Float64}, Float64}()
 
-indexSets = load("src/testData/indexSets.jld2")["indexSets"]
-paramOPF = load("src/testData/paramOPF.jld2")["paramOPF"]
-paramDemand = load("src/testData/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("src/testData/Ω_rv5000.jld2")["Ω_rv"]
+indexSets = load("testData_RTS/indexSets.jld2")["indexSets"]
+paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
+paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("testData_RTS/Ω_rv5000.jld2")["Ω_rv"]
 indexSets.Ω = [1:5000...]
 prob = Dict{Int64, Float64}();
 for ω in 1:5000 

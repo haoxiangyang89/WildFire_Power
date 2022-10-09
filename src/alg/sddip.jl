@@ -3,7 +3,11 @@
 # setup the parameters for different cuts
 # setup the interiors point and the initial points
 
-function setupLevelSetMethod(ẑ, f_star_value::Float64 ; cutSelection::String = cutSelection, Output_Gap::Bool = false,  ℓ1::Real = 2, ℓ2::Real = .8, λ::Union{Real, Nothing} = .1  )
+function setupLevelSetMethod(ẑ, f_star_value::Float64; 
+                                    cutSelection::String = cutSelection, 
+                                        Output_Gap::Bool = false,  
+                                            ℓ1::Real = 2, ℓ2::Real = .8, λ::Union{Real, Nothing} = .1  
+                            )
     if cutSelection == "ShrinkageLC"
         λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
         levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 1e2, Output, Output_Gap);

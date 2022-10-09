@@ -7,7 +7,6 @@
     where ∇F is a Dict{Symbol, Vector}
 
 """
-
 function backward_stage2_optimize!(indexSets::IndexSets, 
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
