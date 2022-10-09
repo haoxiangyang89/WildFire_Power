@@ -25,10 +25,7 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
 
     @variable(Q, νb[B], Bin)
     @variable(Q, νg[G], Bin)
-    @variable(Q, νl[L], Bin)
-
-    @variable(Q, slack_variable_b >= 0)
-    @variable(Q, slack_variable_c <= 0)    
+    @variable(Q, νl[L], Bin) 
 
     ## constraint 5k l m 
     @constraint(Q, [t in 1:T-1, i in B], zb[i, t] >= zb[i, t+1] )
@@ -84,8 +81,8 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
       ## constraint 5b 5c
       i = l[1]
       j = l[2]
-      @constraint(Q, [t in 1:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - zl[l, t] ) ) + slack_variable_b )
-      @constraint(Q, [t in 1:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - zl[l, t] ) ) + slack_variable_c )
+      @constraint(Q, [t in 1:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - zl[l, t] ) ) )
+      @constraint(Q, [t in 1:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - zl[l, t] ) ) )
 
       ## constraint 5d
       @constraint(Q, [t in 1:T], P[l, t] >= - paramOPF.W[l] * zl[l, t] )
@@ -97,12 +94,10 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
             sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in 1:T) +
             sum(paramDemand.cb[i] * νb[i] for i in B) + 
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
-            sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
+            sum(paramDemand.cl[l] * νl[l] for l in L)
             )
     ####################################################### solve the model and display the result ###########################################################
     optimize!(Q)
-    # JuMP.value.(slack_variable_b)
-    # JuMP.value.(slack_variable_c)
     # st = termination_status(Q)
     state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 2}}(:zg => round.(JuMP.value.(zg)), :zb => round.(JuMP.value.(zb)), :zl => round.(JuMP.value.(zl)))
     state_value    = JuMP.objective_value(Q)

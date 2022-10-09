@@ -39,9 +39,6 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
     @variable(model, νg[G, Ω], Bin)
     @variable(model, νl[L, Ω], Bin)
 
-    @variable(model, slack_variable_b[Ω] >= 0)
-    @variable(model, slack_variable_c[Ω] <= 0)
-
     # constraint 1b 1c
     for l in L
       i = l[1]
@@ -50,8 +47,8 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
       @constraint(model, [t in 1:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - zl[l, t] ) ) )
 
       ## constraints 3b 3c
-      @constraint(model, [ω in Ω, t in Ω_rv[ω].τ:T], Pω[l, t, ω] <= - paramOPF.b[l] * (θω[i, t, ω] - θω[j, t, ω] + paramOPF.θmax * (1 - yl[l, ω] ) ) + slack_variable_b[ω] )
-      @constraint(model, [ω in Ω, t in Ω_rv[ω].τ:T], Pω[l, t, ω] >= - paramOPF.b[l] * (θω[i, t, ω] - θω[j, t, ω] + paramOPF.θmin * (1 - yl[l, ω] ) ) + slack_variable_c[ω] )
+      @constraint(model, [ω in Ω, t in Ω_rv[ω].τ:T], Pω[l, t, ω] <= - paramOPF.b[l] * (θω[i, t, ω] - θω[j, t, ω] + paramOPF.θmax * (1 - yl[l, ω] ) ) )
+      @constraint(model, [ω in Ω, t in Ω_rv[ω].τ:T], Pω[l, t, ω] >= - paramOPF.b[l] * (θω[i, t, ω] - θω[j, t, ω] + paramOPF.θmin * (1 - yl[l, ω] ) ) )
     end
 
     ## constraint 1d
@@ -130,15 +127,14 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
     end 
     
     ## objective function 1a & 3a
-    @objective(model, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D)
-                for t in 1:Ω_rv[ω].τ - 1 ) + ## 3a
-                sum( sum(paramDemand.w[d] * (1 - xω[d, t, ω]) for d in D) for t in Ω_rv[ω].τ:T) + 
-                sum(paramDemand.cb[i] * νb[i, ω] for i in B) + 
-                sum(paramDemand.cg[g] * νg[g, ω] for g in G) + 
-                sum(paramDemand.cl[l] * νl[l, ω] for l in L) + 
-                + paramDemand.penalty * slack_variable_b[ω] - paramDemand.penalty * slack_variable_c[ω]) 
-                for ω in Ω)  
-                    )
+    @objective(model, Min, sum( prob[ω] * ( sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D) for t in 1:Ω_rv[ω].τ - 1 ) + ## 3a
+                    sum( sum(paramDemand.w[d] * (1 - xω[d, t, ω]) for d in D) for t in Ω_rv[ω].τ:T) + 
+                        sum(paramDemand.cb[i] * νb[i, ω] for i in B) + 
+                            sum(paramDemand.cg[g] * νg[g, ω] for g in G) + 
+                                sum(paramDemand.cl[l] * νl[l, ω] for l in L)
+                                            )                                                               
+                                                for ω in Ω)  
+                )
 
                                                                                      
     ####################################################### solve the model and display the result ###########################################################
@@ -150,8 +146,7 @@ function optimalShutOff!(; indexSets::IndexSets = indexSets,
                     sum( sum(paramDemand.w[d] * (1 - JuMP.value.(xω[d, t, ω])) for d in D) for t in Ω_rv[ω].τ:T) + 
                             sum(paramDemand.cb[i] * JuMP.value.(νb[i, ω]) for i in B) + 
                                 sum(paramDemand.cg[g] * JuMP.value.(νg[g, ω]) for g in G) + 
-                                    sum(paramDemand.cl[l] * JuMP.value.(νl[l, ω]) for l in L) +  ## second stage 
-                paramDemand.penalty * JuMP.value.(slack_variable_b[ω]) - paramDemand.penalty * JuMP.value.(slack_variable_c[ω])
+                                    sum(paramDemand.cl[l] * JuMP.value.(νl[l, ω]) for l in L)
     end
 
 

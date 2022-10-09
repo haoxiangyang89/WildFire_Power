@@ -110,9 +110,6 @@ function benchmark_stage2_model!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArra
     @variable(Q, νg[G], Bin)
     @variable(Q, νl[L], Bin)
 
-    @variable(Q, slack_variable_b >= 0)
-    @variable(Q, slack_variable_c <= 0)    
-
     ## constraint k l m 
     @constraint(Q, [i in B], yb[i] <= ẑ[:zb][i] )
     @constraint(Q, [g in G], yg[g] <= ẑ[:zg][g] )
@@ -167,8 +164,8 @@ function benchmark_stage2_model!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArra
       ## constraint 3b 3c
       i = l[1]
       j = l[2]
-      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - yl[l] ) ) + slack_variable_b )
-      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - yl[l] ) ) + slack_variable_c )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] <= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmax * (1 - yl[l] ) ) )
+      @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.b[l] * (θ_angle[i, t] - θ_angle[j, t] + paramOPF.θmin * (1 - yl[l] ) ) )
 
       ## constraint 3d
       @constraint(Q, [t in randomVariables.τ:T], P[l, t] >= - paramOPF.W[l] * yl[l] )
@@ -180,7 +177,7 @@ function benchmark_stage2_model!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArra
             sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
             sum(paramDemand.cb[i] * νb[i] for i in B) + 
             sum(paramDemand.cg[g] * νg[g] for g in G) + 
-            sum(paramDemand.cl[l] * νl[l] for l in L) + paramDemand.penalty * slack_variable_b - paramDemand.penalty * slack_variable_c
+            sum(paramDemand.cl[l] * νl[l] for l in L)
             )
     ####################################################### solve the model and display the result ###########################################################
     optimize!(Q)
