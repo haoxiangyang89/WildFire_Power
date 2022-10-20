@@ -272,13 +272,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
             # sum(forest.ignition)
             # sum(forest.busFired)
             # sum(forest.lineFired)
-            if sum(forest.lineFired) > 4 && sum(forest.busFired) > 3
-                # if disruption_not_occur
-                #     τ = i * period_span
-                #     disruption_not_occur = false
-                # end
-                # τ = minimum([i * period_span + ceil(rand(Uniform(0.1,.7)) * T), T])
-                # τ = ceil(rand(Uniform(0.4,.9)) * T)
+            if sum(forest.lineFired) > 3 && sum(forest.busFired) > 2
                 τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)

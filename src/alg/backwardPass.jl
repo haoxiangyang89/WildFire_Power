@@ -401,7 +401,12 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
     while true
         add_constraint(currentInfo, oracleInfo);
         optimize!(oracleModel);
-        f_star = JuMP.objective_value(oracleModel);
+        st = termination_status(oracleModel);
+        if st == MOI.OPTIMAL
+            f_star = JuMP.objective_value(oracleModel);
+        else 
+            return cutInfo
+        end
 
         # formulate alpha model
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output);
@@ -448,15 +453,15 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
-        λ = iter ≤ 10 ? 0.05 : 0.15;
-        λ = iter ≥ 20 ? 0.25 : λ;
-        λ = iter ≥ 30 ? 0.4 : λ;
-        λ = iter ≥ 40 ? 0.6 : λ;
-        λ = iter ≥ 50 ? 0.7 : λ;
-        λ = iter ≥ 60 ? 0.8 : λ;
-        λ = iter ≥ 70 ? 0.9 : λ;
-        λ = iter ≥ 85 ? 0.99 : λ;
-        λ = iter ≥ 90 ? 1. : λ;
+        λ = iter ≤ 10 ? 0.05 : 0.1;
+        λ = iter ≥ 20 ? 0.15 : λ;
+        λ = iter ≥ 30 ? 0.25 : λ;
+        λ = iter ≥ 40 ? 0.35 : λ;
+        λ = iter ≥ 50 ? 0.45 : λ;
+        λ = iter ≥ 60 ? 0.55 : λ;
+        λ = iter ≥ 70 ? 0.6 : λ;
+        λ = iter ≥ 85 ? 0.7 : λ;
+        λ = iter ≥ 90 ? 0.8 : λ;
         
         level = round.(w + λ * (W - w), digits = 5)
         
@@ -520,7 +525,7 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
+        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || (iter > max_iter) || (currentInfo.G[1] ≤ 0.0)
             return cutInfo
         end
         
