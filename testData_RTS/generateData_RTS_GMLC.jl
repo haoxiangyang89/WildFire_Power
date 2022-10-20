@@ -45,11 +45,11 @@ for ω in indexSets.Ω
 end
 
 
-save("testData_RTS/sampleSize2/indexSets.jld2", "indexSets", indexSets)
-save("testData_RTS/sampleSize2/paramOPF.jld2", "paramOPF", paramOPF)
-save("testData_RTS/sampleSize2/paramDemand.jld2", "paramDemand", paramDemand)
-save("testData_RTS/sampleSize2/Ω_rv.jld2", "Ω_rv", Ω_rv)
-save("testData_RTS/sampleSize2/prob.jld2", "prob", prob)
+save("testData_RTS/sampleSize2_easy/indexSets.jld2", "indexSets", indexSets)
+save("testData_RTS/sampleSize2_easy/paramOPF.jld2", "paramOPF", paramOPF)
+save("testData_RTS/sampleSize2_easy/paramDemand.jld2", "paramDemand", paramDemand)
+save("testData_RTS/sampleSize2_easy/Ω_rv.jld2", "Ω_rv", Ω_rv)
+save("testData_RTS/sampleSize2_easy/prob.jld2", "prob", prob)
 
 
 
@@ -90,27 +90,27 @@ save("testData_RTS/sampleSize2/prob.jld2", "prob", prob)
 #                                     indexSets = indexSets, line_id_bus = line_id_bus);
 # save("testData_RTS/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
 
-Ω_rvList = Dict()
-for num in [20, 50, 100, 200, 500] 
-    for i in 1:20 
-        T = 24;
-        Ω = num; ## Int
-        (indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
-        (x_grid_num, y_grid_num, line_location_id, 
-                                    line_id_location, 
-                                    line_id_bus,
-                                    bus_id_location, 
-                                    bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 2, grid_length = 3000);
+# Ω_rvList = Dict()
+# for num in [20, 50, 100, 200, 500] 
+#     for i in 1:20 
+#         T = 24;
+#         Ω = num; ## Int
+#         (indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
+#         (x_grid_num, y_grid_num, line_location_id, 
+#                                     line_id_location, 
+#                                     line_id_bus,
+#                                     bus_id_location, 
+#                                     bus_location_id) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 2, grid_length = 3000);
 
         
 
-        Ω_rvList[num, i] = prepareScenarios( ;period_span = 1, 
-                                            T = T, 
-                                            Ω = Ω, 
-                                            indexSets = indexSets, line_id_bus = line_id_bus);
-    end
-    save("testData_RTS/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
-end
+#         Ω_rvList[num, i] = prepareScenarios( ;period_span = 1, 
+#                                             T = T, 
+#                                             Ω = Ω, 
+#                                             indexSets = indexSets, line_id_bus = line_id_bus);
+#     end
+#     save("testData_RTS/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
+# end
 
 # num = 100; i = 9, 15, 14
 
