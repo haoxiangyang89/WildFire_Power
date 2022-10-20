@@ -1,10 +1,11 @@
 using CSV, DataFrames, Printf, Gurobi, JuMP
 using JLD2, FileIO
 
-totalCost = load("src/Experiments/ScenariosSizeTest/totalCost.jld2")["totalCost"]  # find the solution with smallest cost 
+# totalCost = load("src/Experiments/ScenariosSizeTest/totalCost.jld2")["totalCost"]  # find the solution with smallest cost 
 gurobiResultList = load("src/Experiments/ScenariosSizeTest/gurobiResultList.jld2")["gurobiResultList"]
-# (11, 200)
-zstar = gurobiResultList[200,11]
+# (13, 200)
+
+zstar = gurobiResultList[200,13]
 
 
 ## ------------------------------  Compute total costs by using different decisions  ----------------------------- ##
@@ -199,7 +200,7 @@ for k in 1:1
       ## stage 2
       c = 0.0;
       for ω in indexSets.Ω
-        @info "$k, $ω, $scenarioSize"
+        @info "$ω"
         randomVariables = Ω_rv[ω];
         forward2Info = forward_stage2_model!(indexSets, 
                                               paramDemand,

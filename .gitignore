@@ -24,4 +24,4 @@ docs/site/
 Manifest.toml
 
 # ignore .jld2 files
-# *.jld2
+*.jld2

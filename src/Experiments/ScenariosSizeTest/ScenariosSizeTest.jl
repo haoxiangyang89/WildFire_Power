@@ -16,7 +16,7 @@ paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
 
 for Ω in [20, 50, 100, 200, 500]
   for i in 1:20 
-    @info "$i"
+      @info "$Ω, $i"
       Ω_rv = Ω_rvList[(Ω, i)]; indexSets.Ω = [1:Ω...];
 
       prob = Dict{Int64, Float64}();
@@ -24,13 +24,14 @@ for Ω in [20, 50, 100, 200, 500]
           prob[ω] = 1/Ω;
       end
 
-      # timelimit = Ω >= 100 ? 14400 : 6000
+      timelimit = Ω >= 200 ? 10800 : 7200;
+      mipGap = Ω >= 200 ? 3e-2 : 1e-2
       gurobiResultList[(Ω, i)] = gurobiOptimize!(indexSets, 
                                           paramDemand, 
                                           paramOPF, 
                                           Ω_rv,
                                           prob; 
-                                          mipGap = 1e-2, timelimit = 7200); 
+                                          mipGap = mipGap, timelimit = timelimit); 
   end
   save("src/Experiments/ScenariosSizeTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 end
@@ -38,7 +39,6 @@ end
 save("src/Experiments/ScenariosSizeTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 
 # gurobiResultList = load("src/Experiments/ScenariosSizeTest/gurobiResultList.jld2")["gurobiResultList"]
-
 
 
 
@@ -119,7 +119,7 @@ for k in 1:20
       ## stage 2
       c = 0.0;
       for ω in indexSets.Ω
-        @info "$ω"
+        @info "$k, $scenarioSize, $ω"
         randomVariables = Ω_rv[ω];
         forward2Info = forward_stage2_model!(indexSets, 
                                               paramDemand,
@@ -145,6 +145,7 @@ for k in 1:20
       end
       u = state_value + c;
       totalCost[(k, scenarioSize)] = u;
+      save("src/Experiments/ScenariosSizeTest/totalCost.jld2", "totalCost", totalCost)
   end
 end
 save("src/Experiments/ScenariosSizeTest/totalCost.jld2", "totalCost", totalCost)

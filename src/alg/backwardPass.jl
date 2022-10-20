@@ -401,7 +401,12 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
     while true
         add_constraint(currentInfo, oracleInfo);
         optimize!(oracleModel);
-        f_star = JuMP.objective_value(oracleModel);
+        st = termination_status(oracleModel);
+        if st == MOI.OPTIMAL
+            f_star = JuMP.objective_value(oracleModel);
+        else 
+            return cutInfo
+        end
 
         # formulate alpha model
         result = Δ_model_formulation(functionHistory, f_star, iter, Output = Output);
@@ -417,8 +422,10 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         end
 
         # push!(gap_list, Δ);
+        x₀ = currentInfo.x;
         if round(previousΔ) > round(Δ)
-            x₀ = currentInfo.x; τₖ = μₖ * τₖ;
+            # x₀ = currentInfo.x;
+            τₖ = μₖ * τₖ;
             if cutSelection == "ELC"
                 cutInfo =  [ - currentInfo.f - currentInfo.x[:zb]' * x_interior[:zb] - 
                                                         currentInfo.x[:zg]' * x_interior[:zg] - 
@@ -441,7 +448,7 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         if μ/2 ≤ (α-a_min)/(a_max-a_min) .≤ 1-μ/2
             α = α;
         else
-            α = round.((a_min+a_max)/2, digits = 5);
+            α = round.((a_min+a_max)/2, digits = 6);
         end
 
         # update level
@@ -450,13 +457,13 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
 
         λ = iter ≤ 10 ? 0.05 : 0.15;
         λ = iter ≥ 20 ? 0.25 : λ;
-        λ = iter ≥ 30 ? 0.4 : λ;
-        λ = iter ≥ 40 ? 0.6 : λ;
-        λ = iter ≥ 50 ? 0.7 : λ;
-        λ = iter ≥ 60 ? 0.8 : λ;
-        λ = iter ≥ 70 ? 0.9 : λ;
-        λ = iter ≥ 85 ? 0.99 : λ;
-        λ = iter ≥ 90 ? 1. : λ;
+        λ = iter ≥ 30 ? 0.35 : λ;
+        λ = iter ≥ 40 ? 0.45 : λ;
+        λ = iter ≥ 50 ? 0.55 : λ;
+        λ = iter ≥ 60 ? 0.65 : λ;
+        λ = iter ≥ 70 ? 0.75 : λ;
+        λ = iter ≥ 85 ? 0.85 : λ;
+        λ = iter ≥ 90 ? 0.95 : λ;
         
         level = round.(w + λ * (W - w), digits = 5)
         
@@ -520,7 +527,7 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         end
 
         ## stop rule: gap ≤ .07 * function-value && constraint ≤ 0.05 * LagrangianFunction
-        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || iter > max_iter
+        if ( Δ ≤ threshold * 10 && currentInfo.G[1] ≤ threshold ) || (iter > max_iter) || (currentInfo.G[1] ≤ 0.0)
             return cutInfo
         end
         

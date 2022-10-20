@@ -9,12 +9,12 @@ function setupLevelSetMethod(ẑ, f_star_value::Float64;
                                             ℓ1::Real = 2, ℓ2::Real = .8, λ::Union{Real, Nothing} = .1  
                             )
     if cutSelection == "ShrinkageLC"
-        λ_value = λ; Output = 0; threshold = 1e-4 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 1e2, Output, Output_Gap);
+        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 50, Output, Output_Gap);
         x_interior = nothing;
     elseif cutSelection == "ELC"
-        λ_value = λ; Output = 0; threshold = 1e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 1.5e2, Output, Output_Gap);
+        λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 80, Output, Output_Gap);
         x_interior = Dict{Symbol, Vector{Float64}}(:zg => ẑ[:zg] .* ℓ2  .+ (1 - ℓ2)/2, 
                                 :zb => ẑ[:zb] .* ℓ2  .+ (1 - ℓ2)/2, 
                                         :zl => ẑ[:zl] .* ℓ2  .+ (1 - ℓ2)/2
@@ -174,7 +174,7 @@ function SDDiP_algorithm( ;
                                                         levelSetMethodParam = levelSetMethodParam,
                                                             cutSelection = cutSelection,            ## "ELC", "LC", "ShrinkageLC" 
                                                                 x_interior = x_interior, 
-                                                                    x₀ = x₀, tightness = false
+                                                                    x₀ = x₀, tightness = true
                                                     )
                 
                 # add cut
