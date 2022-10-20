@@ -272,7 +272,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
             # sum(forest.ignition)
             # sum(forest.busFired)
             # sum(forest.lineFired)
-            if sum(forest.lineFired) > 3 && sum(forest.busFired) > 2
+            if sum(forest.lineFired) > 1 || sum(forest.busFired) > 1
                 τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
