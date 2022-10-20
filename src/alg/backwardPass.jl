@@ -455,6 +455,7 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         w = α * f_star;
         W = minimum( α * functionHistory.f_his[j] + (1-α) * functionHistory.G_max_his[j] for j in 1:iter);
 
+<<<<<<< HEAD
         λ = iter ≤ 10 ? 0.05 : 0.15;
         λ = iter ≥ 20 ? 0.25 : λ;
         λ = iter ≥ 30 ? 0.35 : λ;
@@ -464,6 +465,17 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
         λ = iter ≥ 70 ? 0.75 : λ;
         λ = iter ≥ 85 ? 0.85 : λ;
         λ = iter ≥ 90 ? 0.95 : λ;
+=======
+        λ = iter ≤ 10 ? 0.05 : 0.1;
+        λ = iter ≥ 20 ? 0.15 : λ;
+        λ = iter ≥ 30 ? 0.25 : λ;
+        λ = iter ≥ 40 ? 0.35 : λ;
+        λ = iter ≥ 50 ? 0.45 : λ;
+        λ = iter ≥ 60 ? 0.55 : λ;
+        λ = iter ≥ 70 ? 0.6 : λ;
+        λ = iter ≥ 85 ? 0.7 : λ;
+        λ = iter ≥ 90 ? 0.8 : λ;
+>>>>>>> b0ba41fadf36400d3b50b9271b856ef7b4c90548
         
         level = round.(w + λ * (W - w), digits = 5)
         

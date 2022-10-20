@@ -164,7 +164,7 @@ function SDDiP_algorithm( ;
                             );
                 f_star_value = Stage2_collection[ω];
 
-                cutSelection = "ELC";                                                               ## "ELC", "LC", "ShrinkageLC" 
+                cutSelection = "ShrinkageLC";                                                               ## "ELC", "LC", "ShrinkageLC" 
                 (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(ẑ, f_star_value; cutSelection = cutSelection, 
                                                                                         Output_Gap = true, 
                                                                                             ℓ1 = 0., # or 0   ## adjust x0
