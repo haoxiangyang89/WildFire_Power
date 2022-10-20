@@ -15,7 +15,7 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
                 )
 
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i
-    @variable(Q, P[L, 1:T] >= 0)       ## real power flow on line l; elements in L is Tuple (i, j)
+    @variable(Q, P[L, 1:T])            ## real power flow on line l; elements in L is Tuple (i, j)
     @variable(Q, s[G, 1:T] >= 0)       ## real power generation at generator g
     @variable(Q, 0 <= x[D, 1:T] <= 1)  ## load shedding
 
