@@ -1,7 +1,7 @@
 using CSV, DataFrames, Printf, Gurobi, JuMP
 using JLD2, FileIO
 
-totalCost = load("src/Experiments/ScenariosSizeTest/totalCost.jld2")["totalCost"]
+totalCost = load("src/Experiments/ConfidenceInterval/totalCost.jld2")["totalCost"]
 gurobiResultList = load("src/Experiments/ScenariosSizeTest/gurobiResultList.jld2")["gurobiResultList"]
 
 
@@ -13,16 +13,14 @@ end
 
 gapdf = Dict()
 for (k, ss) in keys(LBDF)
-    if ss != 150
-        gapdf[k, ss] = totalCost[k, ss] - LBDF[k, ss]
-    end
+  gapdf[k, ss] = totalCost[k, ss] - LBDF[k, ss]
 end
 ## ------------------------------ Transfer into two dataframes ----------------------------- ##
 
-costMatrix = zeros(20,4)
+costMatrix = zeros(20,5)
 for (i,j) in keys(gapdf)
   index = 0
-  for k in [20, 50, 100, 200]
+  for k in [20, 50, 100, 200, 500]
     if k <= j 
       index = index + 1
     end
@@ -30,7 +28,7 @@ for (i,j) in keys(gapdf)
   costMatrix[i,index] = gapdf[(i,j)]
 end
 gapDF = DataFrame(costMatrix, :auto)
-gapDF = DataFrames.select(gapDF, :x1 => :sz20, :x2 => :sz50, :x3 => :sz100, :x4 => :sz200)
+gapDF = DataFrames.select(gapDF, :x1 => :sz20, :x2 => :sz50, :x3 => :sz100, :x4 => :sz200, :x5 => :sz500)
 
 
 
@@ -38,9 +36,9 @@ gapDF = DataFrames.select(gapDF, :x1 => :sz20, :x2 => :sz50, :x3 => :sz100, :x4 
 using Statistics
 using Plots; pyplot()
 xs = [20, 50, 100, 200, 500]
-μs1, σs1 = mean.(eachcol(gapDF)), std.(eachcol(gapDF))
+μs1, σs1, max1, min1 = mean.(eachcol(gapDF)),   std.(eachcol(gapDF)), maximum.(eachcol(gapDF)), minimum.(eachcol(gapDF))
 # plot ribbon
-Plots.plot( xs, μs1, color=:lightblue, ribbon=σs1,label=false)
+Plots.plot( xs, μs1, color=:lightblue, ribbon=(μs1 .- min1, max1 .- μs1),label=false)
 # plot mean point
 Plots.plot!(xs, μs1, color=:blue, marker=(:circle, 8, 1.), label="Optimality Gap",  xlab = "Sample size", ylab = "Value of Gap")
 
@@ -48,26 +46,12 @@ Plots.plot!(xs, μs1, color=:blue, marker=(:circle, 8, 1.), label="Optimality Ga
 n = 5; ## the number of columns
 YUB = [gapDF[:, i] for i in 1:n]
 Ym = mean.(YUB)
-ϵ⁻ = Ym .- quantile.(YUB, fill(0.25, n))
-ϵ⁺ = quantile.(YUB, fill(0.75, n)) .- Ym
+ϵ⁻ = 1.96 .* σs1/sqrt(20)
+ϵ⁺ = 1.96 .* σs1/sqrt(20)
 scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false, title = "Confidence intervals and point estimates of optimality gaps")
 
 
-# -------------------- 
-# plot ribbon
-Plots.scatter( xs, μs1, color=:lightblue,label=false)
-
-# plot mean point
-
-# plot CI
-n = 4; ## the number of columns
-YUB = [gapDF[:, i] for i in 1:n]
-Ym = mean.(YUB)          
-ϵ⁻ = Ym .- quantile.(YUB, fill(0.25, n))
-ϵ⁺ = quantile.(YUB, fill(0.75, n)) .- Ym                  # 106.9, [25.32498985, 31.32498985]
-scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label=false)
-# --------------------
-
+#  σs1[5] = 65, max1[5] = 330, min1[5] = 60
 
 ## ------------------------------- Data Processing ------------------------------ #
 ## compute CI
@@ -85,15 +69,9 @@ t_test(gapDF[:,1])
 t_test(gapDF[:,2])
 t_test(gapDF[:,3])
 t_test(gapDF[:,4])
-t_test(costDF[:,5])
+t_test(gapDF[:,5])
 
 
-# Ym = [950.7, 591.2, 445.0, 312.9, 106.9]
-
-CI_DF = DataFrame(:ss => [20, 50, 100, 200, 500], :GAP => Ym, :CI => [[831.3, 1081.2], [491.6, 671.1], [365.8, 489.5], [267.0, 371.9], [81.6, 138.3]], :Percentage => (ϵ⁺ .+ ϵ⁻)./2642.63 * 100)
-# latexify(CI_DF) ## 2642.63
-
-# [[831.3, 1081.2], [491.6, 671.1], [365.8, 489.5], [267.0, 371.9], [81.6, 138.3]]
 
 ## ------------------------------- Data Processing ------------------------------ #
 # using DataFrames

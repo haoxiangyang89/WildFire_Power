@@ -61,8 +61,8 @@ function gurobiOptimize!(indexSets::IndexSets,
     @constraint(model, [l in L, t in 1:T], P[l, t] ≤ paramOPF.W[l] * zl[l, t] );
 
     ## constraint 1e
-    @constraint(model, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) - 
-                                              sum(P[(i, j), t] for j in out_L[i] ) + 
+    @constraint(model, [i in B, t in 1:T], sum(s[g, t] for g in Gᵢ[i]) + 
+                                              sum(P[(i, j), t] for j in out_L[i] ) - 
                                                 sum(P[(j, i), t] for j in in_L[i] ) 
                                                   .== sum(paramDemand.demand[t][d] * x[d, t] for d in Dᵢ[i]) );
     
@@ -90,9 +90,9 @@ function gurobiOptimize!(indexSets::IndexSets,
 
         ## constraint 3e
         @constraint(model, [i in B, t in Ω_rv[ω].τ:T], sum(sω[g, t, ω] for g in Gᵢ[i]) + 
-                                                                                sum(Pω[(i, j), t, ω] for j in out_L[i] ) - 
-                                                                                  sum(Pω[(j, i), t, ω] for j in in_L[i] ) 
-                                                                                    .== sum(paramDemand.demand[t][d] * xω[d, t, ω] for d in Dᵢ[i]) );
+                                                            sum(Pω[(i, j), t, ω] for j in out_L[i] ) - 
+                                                                sum(Pω[(j, i), t, ω] for j in in_L[i] ) 
+                                                                    .== sum(paramDemand.demand[t][d] * xω[d, t, ω] for d in Dᵢ[i]) );
 
         ## constraint 3f
         @constraint(model, [g in G, t in Ω_rv[ω].τ:T], sω[g, t, ω] ≥ paramOPF.smin[g] * yg[g, ω]);
