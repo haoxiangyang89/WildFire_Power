@@ -18,11 +18,7 @@ WFPI_Info = WFPI_file[:, [:From_Bus, :To_Bus, :Mean]];
 
 
 T = 24;
-<<<<<<< HEAD
 Ω = 2; ## Int
-=======
-Ω = 100; ## Int
->>>>>>> b0ba41fadf36400d3b50b9271b856ef7b4c90548
 (indexSets, paramOPF, paramDemand, multiLines) = prepareIndexSets(network_data, T, Ω);
 
 
