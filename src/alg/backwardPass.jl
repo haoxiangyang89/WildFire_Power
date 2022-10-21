@@ -423,7 +423,7 @@ function LevelSetMethod_optimization!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxi
 
         # push!(gap_list, Δ);
         x₀ = currentInfo.x;
-        if round(previousΔ) > round(Δ)
+        if (round(previousΔ) > round(Δ)) || ((currentInfo.G[1] ≤ 0.0))
             # x₀ = currentInfo.x;
             τₖ = μₖ * τₖ;
             if cutSelection == "ELC"

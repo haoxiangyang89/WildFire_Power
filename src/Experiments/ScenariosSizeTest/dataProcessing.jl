@@ -110,14 +110,14 @@ Plots.plot!(xs, μs2, color=:red, marker=(:circle, 8, 1.), label="Lower Bound", 
 n = 5; ## the number of columns
 YLB = [costLBDF[:, i] for i in 1:n]
 Ym = mean.(YLB)
-ϵ⁻ = 1.96 .* σs2/sqrt(20)
-ϵ⁺ = 1.96 .* σs2/sqrt(20)
+ϵ⁻ = 1.96 .* σs2 
+ϵ⁺ = 1.96 .* σs2 
 scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false)
 
 YUB = [costUBDF[:, i] for i in 1:n]
 Ym = mean.(YUB)
-ϵ⁻ = 1.96 .* σs1/sqrt(20)
-ϵ⁺ = 1.96 .* σs1/sqrt(20)
+ϵ⁻ = 1.96 .* σs1
+ϵ⁺ = 1.96 .* σs1 
 scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false, title = "Confidence intervals and point estimates of bounds")
 
 

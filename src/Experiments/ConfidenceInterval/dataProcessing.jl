@@ -45,13 +45,13 @@ Plots.plot!(xs, μs1, color=:blue, marker=(:circle, 8, 1.), label="Optimality Ga
 # plot CI
 n = 5; ## the number of columns
 YUB = [gapDF[:, i] for i in 1:n]
-Ym = mean.(YUB)
-ϵ⁻ = 1.96 .* σs1/sqrt(20)
-ϵ⁺ = 1.96 .* σs1/sqrt(20)
+Ym = μs1
+ϵ⁻ = 1.96 .* σs1
+ϵ⁺ = 1.96 .* σs1
 scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false, title = "Confidence intervals and point estimates of optimality gaps")
 
 
-#  σs1[5] = 65, max1[5] = 330, min1[5] = 60
+#  μs1[5] = 196.1; σs1[5] = 45; max1[5] = 300; min1[5] = 100; min1[4] = 250
 
 ## ------------------------------- Data Processing ------------------------------ #
 ## compute CI
@@ -59,7 +59,7 @@ using Distributions
 function t_test(x; conf_level=0.95)
     alpha = (1 - conf_level)
     tstar = quantile(TDist(length(x)-1), 1 - alpha/2)
-    SE = std(x)/sqrt(length(x))
+    SE = std(x)
 
     lo, hi = mean(x) .+ [-1, 1] * tstar * SE
     "($lo, $hi)"
