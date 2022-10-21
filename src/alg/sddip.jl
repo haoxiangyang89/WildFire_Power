@@ -176,8 +176,8 @@ function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
                 cutSelection = "ShrinkageLC";                                                               ## "ELC", "LC", "ShrinkageLC" 
                 (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(ẑ, f_star_value; cutSelection = cutSelection, 
                                                                                         Output_Gap = true, 
-                                                                                            ℓ1 = 0., # or 0   ## adjust x0
-                                                                                                ℓ2 = .0, ## adjust interior points
+                                                                                            ℓ1 = 1., # or 0   ## adjust x0
+                                                                                                ℓ2 = .5, ## adjust interior points
                                                                                                 λ = nothing);  
                 coef = LevelSetMethod_optimization!(ẑ, f_star_value, randomVariables;
                                                         levelSetMethodParam = levelSetMethodParam,

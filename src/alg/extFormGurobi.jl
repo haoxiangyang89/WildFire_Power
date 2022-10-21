@@ -22,8 +22,8 @@ function gurobiOptimize!(indexSets::IndexSets,
     ## the first stage variables
     @variable(model, θ_angle[B, 1:T]);      ## phase angle of the bus i
     @variable(model, P[L, 1:T]);            ## real power flow on line l; elements in L is Tuple (i, j)
-    @variable(model, s[G, 1:T] ≥ 0);            ## real power generation at generator g
-    @variable(model, 0 ≤ x[D, 1:T] ≤ 1);  ## load shedding
+    @variable(model, s[G, 1:T] ≥ 0);        ## real power generation at generator g
+    @variable(model, 0 ≤ x[D, 1:T] ≤ 1);    ## load shedding
 
 
     @variable(model, zg[G, 1:T], Bin);      ## binary status indicator of generator g
@@ -34,7 +34,7 @@ function gurobiOptimize!(indexSets::IndexSets,
     @variable(model, θω[B, 1:T, Ω]);        ## phase angle of the bus i
     @variable(model, Pω[L, 1:T, Ω]);        ## real power flow on line l; elements in L is Tuple (i, j)  
     @variable(model, sω[G, 1:T, Ω]);        ## real power generation at generator g
-    @variable(model, 0 ≤ xω[D, 1:T, Ω] ≤ 1);   ## load shedding
+    @variable(model, 0 ≤ xω[D, 1:T, Ω] ≤ 1);## load shedding
 
     @variable(model, yb[B, Ω], Bin);
     @variable(model, yg[G, Ω], Bin);
@@ -162,16 +162,3 @@ function gurobiOptimize!(indexSets::IndexSets,
             first_state_variable = first_state_variable)
 end
 
-
-
-# sum(prob[ω] * ( sum( sum(paramDemand.w[d] * (1 - value.(x[d, t])) for d in D) for t in 1:Ω_rv[ω].τ - 1 )) for ω in Ω)
-
-
-
-# sum( prob[ω] * ( sum( sum(paramDemand.w[d] * (1 - value.(xω[d, t, ω])) for d in D) for t in Ω_rv[ω].τ:T) ) 
-#                   for ω in Ω ) 
-
-# sum( prob[ω] * ( sum(paramDemand.cb[i] * value(νb[i, ω]) for i in B) + 
-#                     sum(paramDemand.cg[g] * value(νg[g, ω]) for g in G) + 
-#                       sum(paramDemand.cl[l] * value(νl[l, ω]) for l in L) ) 
-#                                                 for ω in Ω) 

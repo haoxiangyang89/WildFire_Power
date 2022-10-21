@@ -11,14 +11,13 @@ paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
 Ω_rvList = load("testData_RTS/Ω_rvList.jld2")["Ω_rvList"]
 
 Ω = 200; 
-pList = [.3, .6, .9];
+pList = [0.0, .5, .9, .95, .99, 1.];
 probList = Dict{Float64, Any}()
 for p in pList
     prob = Dict{Int64, Float64}();
     for ω in 1:Ω
         prob[ω] = (1 - p)/Ω;
-    end
-    prob[9] = prob[9] + p  
+    end 
     probList[p] = prob
 end
 
@@ -64,7 +63,7 @@ end
 gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
 
 for k in 1:20 
-  for probEmpty in [.9]
+  for probEmpty in [0.0, .5, .9, .95, .99, 1.]
 
       state_variable = gurobiResultList[(probEmpty, k)].first_state_variable;
       ## -------------------------------- solve the first stage model -------------------------------- ##
