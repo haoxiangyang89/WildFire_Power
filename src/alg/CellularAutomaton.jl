@@ -165,7 +165,7 @@ function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_lo
         for pos in line_id_location[id] 
             forest.lineExist[pos...] = 1
             forest.multiLine[pos...] = forest.multiLine[pos...] + 1
-            forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI   
+            forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI / 5  
             forest.lineLength[pos...] = forest.lineLength[pos...] + line_location_id[pos].Length/4  
         end
     end
@@ -233,7 +233,7 @@ function wildfire_ignition_step!(forest::AgentBasedModel)
         lightningDensity = wsample(dataClassification .* 0.09, [0.75, 0.2, 0.15, 0.15, 0.1, 0.08, 0.05, 0.03, 0.02, 0.01], 1)[1]
         maxWind = wsample(dataClassification .* 1.4, windDays./sum(windDays), 1)[1]
 
-        forest.lineFault[I] = mean(rand(forest.multiLine[I])) <= minimum(Probability_fault(lightningDensity = lightningDensity, maxWind = maxWind, L = forest.lineLength[I])) ? 1 : forest.lineFault[I] 
+        forest.lineFault[I] = minimum(rand(forest.multiLine[I])) <= minimum(Probability_fault(lightningDensity = lightningDensity, maxWind = maxWind, L = forest.lineLength[I])) ? 1 : forest.lineFault[I] 
         # end
 
         ## the cell will be burnt if it is burning and there is a fault, 

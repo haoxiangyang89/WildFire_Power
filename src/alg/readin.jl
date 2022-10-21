@@ -272,7 +272,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
             # sum(forest.ignition)
             # sum(forest.busFired)
             # sum(forest.lineFired)
-            if sum(forest.lineFired) > 1 || sum(forest.busFired) > 1
+            if sum(forest.lineFired) > 0 && sum(forest.busFired) > 0 
                 τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
@@ -292,7 +292,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
                 if sum(forest.lineFault) > 0
                     for I in findall(isequal(1), forest.lineFault)
                         id = line_location_id[I.I].id
-                        ul[line_id_bus[id]] = 1
+                        ul[line_id_bus[id]] = rand(Binomial(1, .4), 1)[1]
                     end
                 end
 
@@ -310,8 +310,8 @@ function prepareScenarios( ;period_span::Int64 = 1,
         ## generate fault random variables
         for l in L 
             if ul[l] == 1
-                ub[l[1]] = rand(Binomial(1, .5), 1)[1]
-                ub[l[2]] = rand(Binomial(1, .5), 1)[1]
+                ub[l[1]] = rand(Binomial(1, .1), 1)[1]
+                ub[l[2]] = rand(Binomial(1, .1), 1)[1]
             end
         end
 
@@ -319,7 +319,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
         for b in B 
             if ub[b] == 1
                 for g in Gᵢ[b]
-                    ug[g] = rand(Binomial(1, .5), 1)[1]
+                    ug[g] = rand(Binomial(1, .2), 1)[1]
                 end
             end
         end
