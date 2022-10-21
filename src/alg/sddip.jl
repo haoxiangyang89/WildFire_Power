@@ -14,7 +14,7 @@ function setupLevelSetMethod(ẑ, f_star_value::Float64;
         x_interior = nothing;
     elseif cutSelection == "ELC"
         λ_value = λ; Output = 0; threshold = 5e-3 * f_star_value; 
-        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 80, Output, Output_Gap);
+        levelSetMethodParam = LevelSetMethodParam(0.9, λ_value, threshold, 1e13, 100, Output, Output_Gap);
         x_interior = Dict{Symbol, Vector{Float64}}(:zg => ẑ[:zg] .* ℓ2  .+ (1 - ℓ2)/2, 
                                 :zb => ẑ[:zb] .* ℓ2  .+ (1 - ℓ2)/2, 
                                         :zl => ẑ[:zl] .* ℓ2  .+ (1 - ℓ2)/2
@@ -38,8 +38,17 @@ end
 
 ## ---------------------------------------------   Main Function   --------------------------------------------- ##
 
-function SDDiP_algorithm( ;
+"""
+    SDDiP_algorithm( ;
                             Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
+                            prob::Dict{Int64,Float64} = prob, 
+                            indexSets::IndexSets = indexSets, 
+                            paramDemand::ParamDemand = paramDemand, 
+                            paramOPF::ParamOPF = paramOPF, max_iter::Int64 = 100)
+
+TBW
+"""
+function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
                             prob::Dict{Int64,Float64} = prob, 
                             indexSets::IndexSets = indexSets, 
                             paramDemand::ParamDemand = paramDemand, 
