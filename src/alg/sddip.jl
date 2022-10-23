@@ -146,7 +146,9 @@ function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
         end
 
         ## compute the upper bound
-        UB = minimum([mean(u), UB]); gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%");
+        # UB = minimum([mean(u), UB]); 
+        UB = mean(u);
+        gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
         if i == 1
             println("---------------------------------- Iteration Info ------------------------------------")
@@ -173,10 +175,10 @@ function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
                             );
                 f_star_value = Stage2_collection[ω];
 
-                cutSelection = "ELC";                                                               ## "ELC", "LC", "ShrinkageLC" 
+                cutSelection = "ShrinkageLC";                                                               ## "ELC", "LC", "ShrinkageLC" 
                 (x_interior, levelSetMethodParam, x₀) = setupLevelSetMethod(ẑ, f_star_value; cutSelection = cutSelection, 
                                                                                         Output_Gap = true, 
-                                                                                            ℓ1 = 1., # or 0   ## adjust x0
+                                                                                            ℓ1 = 0., # or 0   ## adjust x0
                                                                                                 ℓ2 = .5, ## adjust interior points
                                                                                                 λ = nothing);  
                 coef = LevelSetMethod_optimization!(ẑ, f_star_value, randomVariables;
