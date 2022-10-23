@@ -4,13 +4,11 @@ using JLD2, FileIO
 totalCost = load("src/Experiments/WeightTest/totalCost.jld2")["totalCost"]
 gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
 
-UBDF = Dict()
+LBDF = Dict()
 for (i, j) in keys(gurobiResultList)
-  UBDF[j, i] = gurobiResultList[i,j].OPT
+  LBDF[j, i] = gurobiResultList[i,j].OPT
 end
 
-## UBDF[7, .3] = 2760;
-## totalCost[7, .3] = 2700;
 
 ## ------------------------------ Transfer into two dataframes ----------------------------- ##
 # first one
@@ -37,18 +35,18 @@ col0 = [cdic[x] for x in df.solClass]
 # https://github.com/JuliaPlots/StatsPlots.jl
 p1 = @df df StatsPlots.plot(:solClass, :Cost, marker=:circle, ms=3, group=:solClass, legend=:outertopright)
 p2 = @df df StatsPlots.boxplot(:solClass, :Cost, ms=3, group=:solClass, legend=:outertopright)
-plotd = StatsPlots.plot(p1, p2, layout = (1, 2), ylim = (2600, 3000), xlim = (-1, 10),legend = true, ylab = "Cost", xlab = "Prob. Without Ignition")
+plotd = StatsPlots.plot(p1, p2, layout = (1, 2), xlim = (-1, 10),legend = true, ylab = "Cost", xlab = "Prob. Without Ignition")
 # StatsPlots.savefig(plotd,"src/Experiments/WeightTest/WeightTestBoxplot.png")
 # @df df Plots.violin(string.(:solClass), :Cost, linewidth=0)
-@df df StatsPlots.boxplot(:solClass .* 10, :Cost, ylim = (2600, 3000), ms=3, group=:solClass, legend=true, 
+@df df StatsPlots.boxplot(:solClass .* 10, :Cost, ms=3, group=:solClass, legend=true, 
                                 ylab = "Cost", title = "Robustness of the first-stage decision", 
                                      framestyle = :box)
 
 ## second one for UB
-costMatrix = zeros(20, 4)
+costMatrix = zeros(20, 6)
 for (i,j) in keys(totalCost)
   index = 0
-  for k in [0.0, 0.3, 0.6, .9]
+  for k in [0.0, .5, .9, .95, .99, 1.0]
     if k <= j 
       index = index + 1
     end
@@ -57,37 +55,39 @@ for (i,j) in keys(totalCost)
 end
 costUBDF = DataFrame(costMatrix, :auto)
 # costUBDF = DataFrames.select(costUBDF, :x1 => :prob0, :x2 => :prob3, :x3 => :prob6)
-costUBDF = DataFrames.select(costUBDF, :x1 => :prob0, :x2 => :prob3, :x3 => :prob6, :x4 => :prob9)
+costUBDF = DataFrames.select(costUBDF, :x1 => :prob0, :x2 => :prob5, :x3 => :prob9, :x4 => :prob95, :x5 => :prob99, :x6 => :prob100)
 
 
 
 ## second one for LB
-costMatrix = zeros(20, 4)
-for (i,j) in keys(UBDF)
+costMatrix = zeros(20, 6)
+for (i,j) in keys(LBDF)
   index = 0
-  for k in [0.0, 0.3, 0.6, .9]
+  for k in [0.0, .5, .9, .95, .99, 1.0]
     if k <= j 
       index = index + 1
     end
   end
-  costMatrix[i,index] = UBDF[(i,j)]
+  costMatrix[i,index] = LBDF[(i,j)]
 end
 costLBDF = DataFrame(costMatrix, :auto)
 # costLBDF = DataFrames.select(costLBDF, :x1 => :prob0, :x2 => :prob3, :x3 => :prob6)
-costLBDF = DataFrames.select(costLBDF, :x1 => :prob0, :x2 => :prob3, :x3 => :prob6, :x4 => :prob9)
+costLBDF = DataFrames.select(costLBDF, :x1 => :prob0, :x2 => :prob5, :x3 => :prob9, :x4 => :prob95, :x5 => :prob99, :x6 => :prob100)
 
 
 using StatsPlots, DataFrames
-X = 0:2.5:7.5 # range(1,10, step = 2.5)
+X = 0:2.5:10 # range(1,10, step = 2.5)
 n = length(X)
-Y = [costUBDF[:, i ] for i in 1:4]
+Y = [costUBDF[:, i ] for i in 1:5]
 X2 = [fill(x,length(y)) for (x,y) in zip(X,Y)]
 df = DataFrame(X = X2, Y = Y)
-@df df StatsPlots.boxplot(:X, :Y, legend=false)
+# labels = reshape(["Ignition Prob 1.0", "Ignition Prob 0.5", "Ignition Prob 0.1", "Ignition Prob 0.05", "Ignition Prob 0.01"], 1, 5)
+labels = reshape([1.0, 0.5, 0.1, 0.05, 0.01], 1, 5)
+@df df StatsPlots.boxplot(:X, :Y, legend=true, label = labels, ylim = (3e3, 5e3), xticks = false, ylab = "Total Cost", title = "Robustness of the first-stage decision")
 
-X = 0:2.5:7.5 # range(1,10, step = .5)
+X = 0:2.5:10 # range(1,10, step = .5)
 n = length(X)
-Y = [costLBDF[:, i ] for i in 1:4]
+Y = [costLBDF[:, i ] for i in 1:5]
 X2 = [fill(x,length(y)) for (x,y) in zip(X,Y)]
 df = DataFrame(X = X2, Y = Y)
 @df df StatsPlots.boxplot(:X, :Y, legend=false)
@@ -165,10 +165,12 @@ function t_test(x; conf_level=0.95)
     "($lo, $hi)"
 end
 
-t_test(costDF[:,1])
-t_test(costDF[:,2])
-t_test(costDF[:,3])
-t_test(costDF[:,4])
+t_test(costUBDF[:,1])
+t_test(costUBDF[:,2])
+t_test(costUBDF[:,3])
+t_test(costUBDF[:,4])
+t_test(costUBDF[:,5])
+t_test(costUBDF[:,6])
 
 
 
