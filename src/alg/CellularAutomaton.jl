@@ -19,11 +19,11 @@ end
 
 
 mutable struct CellInfo <: AbstractAgent
-    id::Int
-    pos::NTuple{2, Int}
+    id          ::Int
+    pos         ::NTuple{2, Int}
     # P₀          ::Float64   ## (0.58)the probability that a neighboring cell is burning and garment in the next step of the simulation under conditions of absence of fire and elevation difference between the central cell and neighboring
-    Pveg        ::Float64   ## Vegetation density (empty = -1.0, limited/cultivated = -0.4, forests = 0.4, shrub = 0.4)
-    Pden        ::Float64   ## Kind of vegetation (empty = -1.0, sparse = -.3, normal = 0.0, dense = 0.3)
+    Pveg        ::Float64   ## Vegetation type (empty = -1.0, limited/cultivated = -0.4, forests = 0.4, shrub = 0.4)
+    Pden        ::Float64   ## Vegetation density (empty = -1.0, sparse = -.3, normal = 0.0, dense = 0.3)
     E           ::Float64   ## elevation of the cell
     state       ::Int64     ## 0. The cell does not contain vegetable fuel and, therefore, it can not burn.
                              # 1. It contains fuel (vegetation) that has not ignited.
@@ -34,14 +34,13 @@ end
 
 
 struct CellEnvironmentInfo
-    Pveg        ::Float64   ## Vegetation density (empty = -1.0, limited/cultivated = -0.4, forests = 0.4, shrub = 0.4)
-    Pden        ::Float64   ## Kind of vegetation (empty = -1.0, sparse = -.3, normal = 0.0, dense = 0.3)
+    Pveg        ::Float64   ## Vegetation type (empty = -1.0, limited/cultivated = -0.4, forests = 0.4, shrub = 0.4)
+    Pden        ::Float64   ## Vegetation density (empty = -1.0, sparse = -.3, normal = 0.0, dense = 0.3)
     E           ::Float64   ## elevation of the cell
     state       ::Int64     ## 0. The cell does not contain vegetable fuel and, therefore, it can not burn.
                              # 1. It contains fuel (vegetation) that has not ignited.
                              # 2. It contains burning vegetation.
                              # 3. It contains vegetation that has burned completely
-
 end
 
 
@@ -95,50 +94,54 @@ function Probability_burn(neighbor::CellInfo,
 end
 
 ## function to compute the probability of outage
-function Probability_fault(lightningDensity::Float64, maxWind::Float64, L::Union{Float64, Int64})
-    lightningDensity = 0.9
-    maxWind = 8
+function Probability_fault(; lightningDensity::Float64 = .9, maxWind::Union{Float64, Int64} = 8.0, L::Union{Float64, Int64} = 73)
     W = [1, lightningDensity, lightningDensity * maxWind, lightningDensity^2, maxWind^2]
-    B = [-13.2719 2.8091 -.2515 -.1438 .0963; 
-    -13.9225 3.1331 -.0791 -.2645 .0727;
-    -11.9084 1.6476 -.0387 -.1069 .0595;
-    -11.8423 1.0980 .2043 -.2692 .0515;
-    -13.5802 3.2945 -.2511 -.2008 .1078; ]
+   
+    B = [   
+            -13.2719 2.8091 -.2515 -.1438 .0963; 
+            -13.9225 3.1331 -.0791 -.2645 .0727;
+            -11.9084 1.6476 -.0387 -.1069 .0595;
+            -11.8423 1.0980 .2043 -.2692 .0515;
+            -13.5802 3.2945 -.2511 -.2008 .1078; 
+        ]
 
-    L = 73
     prob = 1 .- exp.(- L * exp.(B * W))
-
     return prob
 end
 
 
 
-function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_location_id::Dict{Any, NamedTuple{(:id, :WFPI, :Length), Tuple{Int64, Float64, Union{Float64, Int64}}}} ;  griddims::Tuple{Int64, Int64} = (100, 100), 
-                        environmentInfo::Dict{Tuple{Int64, Int64}, CellEnvironmentInfo} = environmentInfo, time_span::Int64 = 1)
+function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_location_id::Dict{Any, NamedTuple{(:id, :WFPI, :Length), Tuple{Int64, Float64, Union{Float64, Int64}}}} ;  
+                        griddims::Tuple{Int64, Int64} = (100, 100), 
+                            environmentInfo::Dict{Tuple{Int64, Int64}, CellEnvironmentInfo} = environmentInfo, 
+                                time_span::Int64 = 1,
+                                    line_id_location::Dict{Int64, Any} = line_id_location
+                                    )
 
-    space = GridSpace(griddims, periodic = false)
-    # The `trees` field is coded such that
-    # No ignition = 0, ignition = 1, burnt = 2
+    space = GridSpace(griddims, periodic = false, metric = :euclidean)
+    ## The 'trees' field is coded such that
+     # No ignition = 0, ignition = 1, burnt = 2
     forest = ABM(
         CellInfo, space;
         properties = (
-                        ignition = zeros(Int, griddims),  ## 0, 1, 2
+                        ignition = zeros(Int, griddims),                      ## 0, 1, 2
                         fault_WFPI = zeros(Float64, griddims),  
-                        busExist = zeros(Int, griddims),  ## binary
-                        lineExist = zeros(Int, griddims),  ## binary
+                        busExist = zeros(Int, griddims),                      ## binary
+                        lineExist = zeros(Int, griddims),                     ## binary
                         lineLength = zeros(Union{Float64, Int64}, griddims),  ## binary * length
-                        busFired = zeros(Int, griddims),     ## ## binary
-                        lineFired = zeros(Int, griddims),   ## binary, by natural wildfire
-                        busFault = zeros(Int, griddims),    ## binary
-                        lineFault = zeros(Int, griddims),   ## binary, fault caused by weather, wildlife, human, lightning
-                        windInfo = [1.0, 0.0],               ## [windSpeed, windDirection, lightningDensity]
+                        busFired = zeros(Int, griddims),                      ## ## binary
+                        lineFired = zeros(Int, griddims),                     ## binary, by natural wildfire
+                        busFault = zeros(Int, griddims),                      ## binary
+                        lineFault = zeros(Int, griddims),                     ## binary, fault caused by weather, wildlife, human, lightning
+                        multiLine = zeros(Int, griddims),                     ## number of lines
+                        multiBus = zeros(Int, griddims),                      ## number of buses
+                        windInfo = [1.0, 0.0],                                ## [windSpeed, windDirection, lightningDensity]
                         time_span = time_span
-                        )
-    )
+                )
+        )
 
     # populate the model with agents, adding equal amount of the two types of agents
     # at random positions in the model
-
 
     id = 1
     for I in CartesianIndices(forest.ignition)
@@ -150,21 +153,24 @@ function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_lo
         agent = CellInfo(id, (1, 1), Pveg, Pden, E, state)
         add_agent!(agent, I.I, forest)
         id = id + 1
-
-        # forest.ignition[I] = min(state, 0) ## No ignition = 0, ignition = 1, burnt = 2
     end
 
     for bus_id in keys(relative_location)
         pos = relative_location[bus_id]
         forest.busExist[pos...] = 1
+        forest.multiBus[pos...] = forest.multiBus[pos...] + 1
     end
 
-
-    for pos in keys(line_location_id)
-        forest.lineExist[pos...] = 1
-        forest.fault_WFPI[pos...] = line_location_id[pos].WFPI/100    
-        forest.lineLength[pos...] = line_location_id[pos].Length/3   
+    for id in keys(line_id_location)
+        for pos in line_id_location[id] 
+            forest.lineExist[pos...] = 1
+            forest.multiLine[pos...] = forest.multiLine[pos...] + 1
+            forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI / 5  
+            forest.lineLength[pos...] = forest.lineLength[pos...] + line_location_id[pos].Length/4  
+        end
     end
+
+    
     return forest
 end
 
@@ -180,7 +186,7 @@ function agent_step!(agent, forest)
         ## If this cell has an ignition, then its state becomes burning
         if forest.ignition[agent.pos...] == 1
             # agent.state = 2
-            agent.state = rand(forest.rng) <= time_span/24 ? 2 : 1
+            agent.state = rand(forest.rng) <= time_span/24 ? 2 : agent.state
         else
             ## If nearby agent is burnt, then its state becomes burning
             for neighbor in nearby_agents(agent, forest, 1)
@@ -193,9 +199,9 @@ function agent_step!(agent, forest)
     end
 
     if forest.lineFault[agent.pos...] == 1
-        for neighbor in nearby_agents(agent, forest, 2)
-            forest.lineFault[neighbor.pos...] = (forest.lineExist[neighbor.pos...] == 1) && (rand(1)[1] <= .1) ? 1 : 0
-            forest.busFault[neighbor.pos...] = (forest.busExist[neighbor.pos...] == 1) && (rand(1)[1] <= .05) ? 1 : 0
+        for neighbor in nearby_agents(agent, forest, 1)
+            forest.lineFault[neighbor.pos...] = (forest.lineExist[neighbor.pos...] == 1) && (minimum(rand(forest.multiLine[neighbor.pos...])) <= forest.fault_WFPI[neighbor.pos...]) ? 1 : forest.lineFault[neighbor.pos...]
+            forest.busFault[neighbor.pos...] = (forest.busExist[neighbor.pos...] == 1) && (minimum(rand(forest.multiBus[neighbor.pos...])) <= forest.fault_WFPI[neighbor.pos...]) ? 1 : forest.busFault[neighbor.pos...]
         end
     end
 
@@ -211,8 +217,8 @@ function wildfire_ignition_step!(forest::AgentBasedModel)
         agent = forest[id]
         if (agent.state == 0 || agent.state == 1)
             # p = Probability_ignition(agent, windInfo)
-            p = 1e-4
-            forest.ignition[agent.pos...] = (rand(forest.rng) <= p && agent.state == 1) ? 2 : 1
+            p = 1e-5
+            forest.ignition[agent.pos...] = (rand(forest.rng) <= p && agent.state == 1) ? 1 : forest.ignition[agent.pos...]
         else 
             forest.ignition[agent.pos...] = agent.state - 1
         end
@@ -221,38 +227,33 @@ function wildfire_ignition_step!(forest::AgentBasedModel)
 
     for I in findall(isequal(1), forest.lineExist)
         ## transmission line will fault due to weather factors
-        if true                                                         
-            dataClassification = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-            windDays = [5, 25, 200, 250, 150, 75, 30, 10, 3, 1]
-            lightningDensity = wsample(dataClassification .* 0.09, [0.75, 0.2, 0.15, 0.15, 0.1, 0.08, 0.05, 0.03, 0.02, 0.01], 1)[1]
-            maxWind = wsample(dataClassification .* 1.4, windDays./sum(windDays), 1)[1]
+        # if true                                                         
+        dataClassification = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        windDays = [5, 25, 200, 250, 150, 75, 30, 10, 3, 1]
+        lightningDensity = wsample(dataClassification .* 0.09, [0.75, 0.2, 0.15, 0.15, 0.1, 0.08, 0.05, 0.03, 0.02, 0.01], 1)[1]
+        maxWind = wsample(dataClassification .* 1.4, windDays./sum(windDays), 1)[1]
 
-            forest.lineFault[I] = rand(forest.rng) <= minimum(Probability_fault(lightningDensity, maxWind, forest.lineLength[I])) ? 1 : 0 
+        forest.lineFault[I] = minimum(rand(forest.multiLine[I])) <= minimum(Probability_fault(lightningDensity = lightningDensity, maxWind = maxWind, L = forest.lineLength[I])) ? 1 : forest.lineFault[I] 
+        # end
+
+        ## the cell will be burnt if it is burning and there is a fault, 
+        if forest.lineFault[I] == 1
+            forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I] ? minimum([2, forest.ignition[I] + 1]) : forest.ignition[I]
         end
 
-        ## if the cell will be burnt if it is burning and there is a fault
-        if forest.lineFault[I] == 1       
-            forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I]/10 ? minimum([2, forest.ignition[I] + 1]) : forest.ignition[I]
-            forest.lineFired[I] = rand(forest.rng) <= forest.fault_WFPI[I]/2 ? 1 : 0
-        end
-
-        ## if the transmission line is fault, then it may cause a fire
-        if forest.lineFired[I] == 1  
-            forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I]/5 ? minimum([2, forest.ignition[I] + 1]) : forest.ignition[I]
-        end
-
-        forest.lineFired[I] = (forest.ignition[I] == 2) && (rand(forest.rng) <= forest.fault_WFPI[I]) ? 1 : 0
+        ## the transmission line is fault, then it may cause a fire
+        forest.lineFired[I] = (forest.ignition[I] == 2) && (minimum(rand(forest.multiLine[I])) <= forest.fault_WFPI[I]) ? 1 : forest.lineFired[I]
     end
 
 
     for I in findall(isequal(1), forest.busExist)
         if forest.lineFault[I] == 1  ## if the cell with one bus is burning, we say this bus is fired
-            forest.busFault[I] = rand(forest.rng) <= forest.fault_WFPI[I]/10 ? 1 : 0
+            forest.busFault[I] = minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I] ? 1 : forest.busFault[I]
         end
 
         ## if the cell will be burnt if it is burning and there is a fault
         if forest.busFault[I] == 1       
-            forest.busFired[I] = rand(forest.rng) <= forest.fault_WFPI[I] * 3 ? 1 : 0
+            forest.busFired[I] = minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I] ? 1 : forest.busFired[I]
         end
 
         ## if the bus is fault, then it may cause a fire
@@ -260,8 +261,7 @@ function wildfire_ignition_step!(forest::AgentBasedModel)
             forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I] ? 2 : forest.ignition[I]
         end
 
-
-        forest.busFired[I] = (forest.ignition[I] ≥ 1) && (rand(forest.rng) <= forest.fault_WFPI[I]/2) ? 1 : 0
+        forest.busFired[I] = (forest.ignition[I] ≥ 1) && (minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I]) ? 1 : forest.busFired[I]
     end
 
     dataClassification = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -277,33 +277,36 @@ end
 ################################################################################################################################################
 #####################################################  Cellular Automton  ######################################################################
 ################################################################################################################################################
-
-function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}}, relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_location_id::Dict{Any, NamedTuple{(:id, :WFPI, :Length), Tuple{Int64, Float64, Union{Float64, Int64}}}} ;  griddims::Tuple{Int64, Int64} = (100, 100), 
-                        environmentInfo::Dict{Tuple{Int64, Int64}, CellEnvironmentInfo} = environmentInfo, time_span::Int64 = 1)
-
-    space = GridSpace(griddims, periodic = false)
-    # The `trees` field is coded such that
-    # No ignition = 0, ignition = 1, burnt = 2
+function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}}, relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_location_id::Dict{Any, NamedTuple{(:id, :WFPI, :Length), Tuple{Int64, Float64, Union{Float64, Int64}}}} ;  
+                        griddims::Tuple{Int64, Int64} = (100, 100), 
+                            environmentInfo::Dict{Tuple{Int64, Int64}, CellEnvironmentInfo} = environmentInfo, 
+                                time_span::Int64 = 1,
+                                    line_id_location::Dict{Int64, Any} = line_id_location
+                                    )
+    space = GridSpace(griddims, periodic = false, metric = :euclidean)
+    ## The 'trees' field is coded such that
+     # No ignition = 0, ignition = 1, burnt = 2
     forest = ABM(
         CellInfo, space;
         properties = (
-                        ignition = zeros(Int, griddims),  ## 0, 1, 2
+                        ignition = zeros(Int, griddims),                      ## 0, 1, 2
                         fault_WFPI = zeros(Float64, griddims),  
-                        busExist = zeros(Int, griddims),  ## binary
-                        lineExist = zeros(Int, griddims),  ## binary
+                        busExist = zeros(Int, griddims),                      ## binary
+                        lineExist = zeros(Int, griddims),                     ## binary
                         lineLength = zeros(Union{Float64, Int64}, griddims),  ## binary * length
-                        busFired = zeros(Int, griddims),     ## ## binary
-                        lineFired = zeros(Int, griddims),   ## binary, by natural wildfire
-                        busFault = zeros(Int, griddims),    ## binary
-                        lineFault = zeros(Int, griddims),   ## binary, fault caused by weather, wildlife, human, lightning
-                        windInfo = [1.0, 0.0],               ## [windSpeed, windDirection, lightningDensity]
+                        busFired = zeros(Int, griddims),                      ## ## binary
+                        lineFired = zeros(Int, griddims),                     ## binary, by natural wildfire
+                        busFault = zeros(Int, griddims),                      ## binary
+                        lineFault = zeros(Int, griddims),                     ## binary, fault caused by weather, wildlife, human, lightning
+                        multiLine = zeros(Int, griddims),                     ## number of lines
+                        multiBus = zeros(Int, griddims),                      ## number of buses
+                        windInfo = [1.0, 0.0],                                ## [windSpeed, windDirection, lightningDensity]
                         time_span = time_span
-                        )
-    )
+                )
+        )
 
     # populate the model with agents, adding equal amount of the two types of agents
     # at random positions in the model
-
 
     id = 1
     for I in CartesianIndices(forest.ignition)
@@ -315,19 +318,21 @@ function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}
         agent = CellInfo(id, (1, 1), Pveg, Pden, E, state)
         add_agent!(agent, I.I, forest)
         id = id + 1
-
-        # forest.ignition[I] = min(state, 0) ## No ignition = 0, ignition = 1, burnt = 2
     end
 
     for bus_id in keys(relative_location)
         pos = relative_location[bus_id]
         forest.busExist[pos...] = 1
+        forest.multiBus[pos...] = forest.multiBus[pos...] + 1
     end
 
-    for pos in keys(line_location_id)
-        forest.lineExist[pos...] = 1
-        forest.fault_WFPI[pos...] = line_location_id[pos].WFPI/100    
-        forest.lineLength[pos...] = line_location_id[pos].Length/5  
+    for id in keys(line_id_location)
+        for pos in line_id_location[id] 
+            forest.lineExist[pos...] = 1
+            forest.multiLine[pos...] = forest.multiLine[pos...] + 1
+            forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI   
+            forest.lineLength[pos...] = forest.lineLength[pos...] + line_location_id[pos].Length/4  
+        end
     end
 
     for agent in allagents(forest) 
@@ -338,7 +343,5 @@ function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}
         end
     end
 
-
     return forest
 end
-
