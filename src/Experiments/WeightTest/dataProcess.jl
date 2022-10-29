@@ -1,8 +1,8 @@
 using CSV, DataFrames, Printf, Gurobi, JuMP
 using JLD2, FileIO
 
-totalCost = load("src/Experiments/WeightTest/totalCost.jld2")["totalCost"]
-gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
+totalCost = load("src/Experiments/WeightTest/totalCostNew.jld2")["totalCost"]
+gurobiResultList = load("src/Experiments/WeightTest/gurobiResultListNew.jld2")["gurobiResultList"]
 
 LBDF = Dict()
 for (i, j) in keys(gurobiResultList)
@@ -43,10 +43,10 @@ plotd = StatsPlots.plot(p1, p2, layout = (1, 2), xlim = (-1, 10),legend = true, 
                                      framestyle = :box)
 
 ## second one for UB
-costMatrix = zeros(20, 6)
+costMatrix = zeros(20, 8)
 for (i,j) in keys(totalCost)
   index = 0
-  for k in [0.0, .5, .9, .95, .99, 1.0]
+  for k in [0.0, 0.01, 0.05, .5, .9, .95, .99, 1.0]
     if k <= j 
       index = index + 1
     end
@@ -55,15 +55,15 @@ for (i,j) in keys(totalCost)
 end
 costUBDF = DataFrame(costMatrix, :auto)
 # costUBDF = DataFrames.select(costUBDF, :x1 => :prob0, :x2 => :prob3, :x3 => :prob6)
-costUBDF = DataFrames.select(costUBDF, :x1 => :prob0, :x2 => :prob5, :x3 => :prob9, :x4 => :prob95, :x5 => :prob99, :x6 => :prob100)
+costUBDF = DataFrames.select(costUBDF, :x1 => :prob0, :x2 => :prob01, :x3 => :prob05, :x4 => :prob5, :x5 => :prob9, :x6 => :prob95, :x7 => :prob99, :x8 => :prob100)
 
 
 
 ## second one for LB
-costMatrix = zeros(20, 6)
+costMatrix = zeros(20, 8)
 for (i,j) in keys(LBDF)
   index = 0
-  for k in [0.0, .5, .9, .95, .99, 1.0]
+  for k in [0.0, 0.01, 0.05, .5, .9, .95, .99, 1.0]
     if k <= j 
       index = index + 1
     end
@@ -72,22 +72,22 @@ for (i,j) in keys(LBDF)
 end
 costLBDF = DataFrame(costMatrix, :auto)
 # costLBDF = DataFrames.select(costLBDF, :x1 => :prob0, :x2 => :prob3, :x3 => :prob6)
-costLBDF = DataFrames.select(costLBDF, :x1 => :prob0, :x2 => :prob5, :x3 => :prob9, :x4 => :prob95, :x5 => :prob99, :x6 => :prob100)
+costLBDF = DataFrames.select(costLBDF, :x1 => :prob0, :x2 => :prob01, :x3 => :prob05, :x4 => :prob5, :x5 => :prob9, :x6 => :prob95, :x7 => :prob99, :x8 => :prob100)
 
 
 using StatsPlots, DataFrames
-X = 0:2.5:10 # range(1,10, step = 2.5)
+X = 0:2.5:17.5 # range(1,10, step = 2.5)
 n = length(X)
-Y = [costUBDF[:, i ] for i in 1:5]
+Y = [costUBDF[:, i ] for i in 1:8]
 X2 = [fill(x,length(y)) for (x,y) in zip(X,Y)]
 df = DataFrame(X = X2, Y = Y)
 # labels = reshape(["Ignition Prob 1.0", "Ignition Prob 0.5", "Ignition Prob 0.1", "Ignition Prob 0.05", "Ignition Prob 0.01"], 1, 5)
-labels = reshape([1.0, 0.5, 0.1, 0.05, 0.01], 1, 5)
-@df df StatsPlots.boxplot(:X, :Y, legend=true, label = labels, ylim = (3e3, 5e3), xticks = false, ylab = "Total Cost", title = "Robustness of the first-stage decision")
+labels = reshape([1.0, 0.99, 0.95, 0.5, 0.1, 0.05, 0.01, 0.0], 1, 8)
+@df df StatsPlots.boxplot(:X, :Y, legend=:topleft, label = labels, xticks = false, ylab = "Total Cost", title = "Robustness of the first-stage decision")
 
-X = 0:2.5:10 # range(1,10, step = .5)
+X = 0:2.5:17.5 # range(1,10, step = .5)
 n = length(X)
-Y = [costLBDF[:, i ] for i in 1:5]
+Y = [costLBDF[:, i ] for i in 1:8]
 X2 = [fill(x,length(y)) for (x,y) in zip(X,Y)]
 df = DataFrame(X = X2, Y = Y)
 @df df StatsPlots.boxplot(:X, :Y, legend=false)
@@ -171,6 +171,9 @@ t_test(costUBDF[:,3])
 t_test(costUBDF[:,4])
 t_test(costUBDF[:,5])
 t_test(costUBDF[:,6])
+t_test(costUBDF[:,7])
+t_test(costUBDF[:,8])
+
 
 
 

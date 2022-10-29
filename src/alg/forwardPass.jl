@@ -134,7 +134,9 @@ function forward_stage2_model!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => outputFlag, 
-                "Threads" => 0) 
+                "Threads" => 0, 
+                "MIPGap" => 1e-3, 
+                "TimeLimit" => 8) 
                 )
 
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i

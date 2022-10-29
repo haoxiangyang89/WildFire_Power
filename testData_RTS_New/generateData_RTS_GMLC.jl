@@ -34,23 +34,22 @@ T = 24;
 Ω_rv = prepareScenarios( ;period_span = 1, 
                                     T = T, 
                                     Ω = Ω, 
-                                    indexSets = indexSets, line_id_bus = line_id_bus);
+                                    indexSets = indexSets, line_id_bus = line_id_bus)
 
-
-# @load "emptyScenario.jld2" emptyScenario
-# Ω_rv[9] = emptyScenario
+@load "emptyScenario.jld2" emptyScenario
+Ω_rv[9] = emptyScenario
 
 prob = Dict{Int64, Float64}();
 for ω in indexSets.Ω 
-    prob[ω] = 1/Ω;
+    prob[ω] = 0.1/Ω;
 end
+prob[9] = prob[9] + .9
 
-
-save("testData_RTS/indexSets.jld2", "indexSets", indexSets)
-save("testData_RTS/paramOPF.jld2", "paramOPF", paramOPF)
-save("testData_RTS/paramDemand.jld2", "paramDemand", paramDemand)
-save("testData_RTS/Ω_rv.jld2", "Ω_rv", Ω_rv)
-save("testData_RTS/prob.jld2", "prob", prob)
+save("testData_RTS_New/indexSets.jld2", "indexSets", indexSets)
+save("testData_RTS_New/paramOPF.jld2", "paramOPF", paramOPF)
+save("testData_RTS_New/paramDemand.jld2", "paramDemand", paramDemand)
+save("testData_RTS_New/Ω_rv.jld2", "Ω_rv", Ω_rv)
+save("testData_RTS_New/prob.jld2", "prob", prob)
 
 
 
@@ -71,7 +70,7 @@ save("testData_RTS/prob.jld2", "prob", prob)
 #                                     T = T, 
 #                                     Ω = Ω, 
 #                                     indexSets = indexSets, line_id_bus = line_id_bus);
-# save("testData_RTS/Ω_rv5000.jld2", "Ω_rv", Ω_rv)
+# save("testData_RTS_New/Ω_rv5000.jld2", "Ω_rv", Ω_rv)
 
 
 # T = 24;
@@ -89,7 +88,7 @@ save("testData_RTS/prob.jld2", "prob", prob)
 #                                     T = T, 
 #                                     Ω = Ω, 
 #                                     indexSets = indexSets, line_id_bus = line_id_bus);
-# save("testData_RTS/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
+# save("testData_RTS_New/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
 
 # Ω_rvList = Dict()
 # for num in [20, 50, 100, 200, 500] 
@@ -110,7 +109,7 @@ save("testData_RTS/prob.jld2", "prob", prob)
 #                                             Ω = Ω, 
 #                                             indexSets = indexSets, line_id_bus = line_id_bus);
 #     end
-#     save("testData_RTS/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
+#     save("testData_RTS_New/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
 # end
 
 # num = 100; i = 9, 15, 14
@@ -133,5 +132,5 @@ save("testData_RTS/prob.jld2", "prob", prob)
 #                                             Ω = Ω, 
 #                                             indexSets = indexSets, line_id_bus = line_id_bus);
 #     end
-#     save("testData_RTS/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
+#     save("testData_RTS_New/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
 # end
