@@ -2,7 +2,7 @@
 ############################################################     Gurobi function   #############################################################
 ################################################################################################################################################
 # https://www.gurobi.com/documentation/9.5/refman/logging.html
-function gurobiOptimize!(indexSets::IndexSets, 
+function gurobiOptimizeTest!(indexSets::IndexSets, 
                             paramDemand::ParamDemand, 
                             paramOPF::ParamOPF, 
                             Ω_rv::Dict{Int64, RandomVariables},
@@ -147,8 +147,36 @@ function gurobiOptimize!(indexSets::IndexSets,
                                     :zb => round.(JuMP.value.(zb)), 
                                     :zl => round.(JuMP.value.(zl))
                                     )
-                                    
+    second_state_variable = Dict(:zg => round.(JuMP.value.(yg)), 
+                                    :zb => round.(JuMP.value.(yb)), 
+                                    :zl => round.(JuMP.value.(yl))
+                                    )
+
+
+    unsatisfiedDemandCost = Dict()
+    for ω in Ω
+      unsatisfiedDemandCost[ω] = sum( sum(paramDemand.w[d] * (1 - JuMP.value.(x[d, t])) for d in D) for t in 1:Ω_rv[ω].τ - 1 )  +  
+                sum( sum(paramDemand.w[d] * (1 - JuMP.value.(xω[d, t, ω])) for d in D) for t in Ω_rv[ω].τ:T)
+                                                                                  
+    end
+    
+    damageCost = Dict()
+    for ω in Ω
+      damageCost[ω] = sum(paramDemand.cb[i] * JuMP.value.(νb[i, ω]) for i in B) + 
+                                            sum(paramDemand.cg[g] * JuMP.value.(νg[g, ω]) for g in G) + 
+                                                sum(paramDemand.cl[l] * JuMP.value.(νl[l, ω]) for l in L)
+                                                                                  
+    end
+    first_state_variable[:zg]
+    sum(first_state_variable[:zg][:, 1])
+    JuMP.value.(x)
+    JuMP.value.(xω[:, :, 9])
+    sum(JuMP.value.(xω[:, :, 9])[:, 24])
+
+
+
     return (OPT = JuMP.objective_value(model), 
-            first_state_variable = first_state_variable)
+            first_state_variable = first_state_variable, 
+            unsatisfiedDemandCost = unsatisfiedDemandCost, damageCost = damageCost)
 end
 

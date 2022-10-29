@@ -10,14 +10,17 @@ paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
 paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
 Ω_rvList = load("testData_RTS/Ω_rvList.jld2")["Ω_rvList"]
 
+@load "testData_RTS/emptyScenario.jld2" emptyScenario
+
 Ω = 50; 
-pList = [.5, .9, 0.95, 0.99];
+pList = [0.0, 0.01, 0.05, .5, .9, 0.95, 0.99, 1.0];
 probList = Dict{Float64, Any}()
 for p in pList
     prob = Dict{Int64, Float64}();
     for ω in 1:Ω
         prob[ω] = (1 - p)/Ω;
     end
+    prob[9] = prob[9] + p
     probList[p] = prob
 end
 
@@ -25,6 +28,7 @@ for p in pList
   for i in 1:20 
     @info "$p, $i"
     Ω_rv = Ω_rvList[(Ω, i)]; indexSets.Ω = [1:Ω...];
+    Ω_rv[9] = emptyScenario;
 
     # timelimit = Ω >= 100 ? 14400 : 6000
     gurobiResultList[(p, i)] = gurobiOptimize!(indexSets, 
@@ -32,14 +36,13 @@ for p in pList
                                         paramOPF, 
                                         Ω_rv,
                                         probList[p]; 
-                                        mipGap = 2e-2, timelimit = 1800); 
+                                        mipGap = 1e-2, timelimit = 1800); 
   end
-  save("src/Experiments/WeightTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
+  save("src/Experiments/WeightTest/gurobiResultListNew.jld2", "gurobiResultList", gurobiResultList)
 end
 
-save("src/Experiments/WeightTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
-
-# gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
+save("src/Experiments/WeightTest/gurobiResultListNew.jld2", "gurobiResultList", gurobiResultList)
+# gurobiResultList = load("src/Experiments/WeightTest/gurobiResultListNew.jld2")["gurobiResultList"]
 
 
 
@@ -53,14 +56,17 @@ paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
 Ω_rv = load("testData_RTS/Ω_rv5000.jld2")["Ω_rv"]
 indexSets.Ω = [1:5000...]
 prob = Dict{Int64, Float64}();
+
+p = 1.0;
 for ω in 1:5000 
-    prob[ω] = 1/5000;
+    prob[ω] = p/5000;
 end
+prob[1090] = prob[1090] + ( 1- p );
 
-gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
+gurobiResultList = load("src/Experiments/WeightTest/gurobiResultListNew.jld2")["gurobiResultList"]
 
-for k in 1:20 
-  for probEmpty in [.5, .9, 0.95, 0.99]
+for k in 1:20
+  for probEmpty in [0.0, 0.01, 0.05, .5, .9, 0.95, 0.99, 1.0]
 
       state_variable = gurobiResultList[(probEmpty, k)].first_state_variable;
       ## -------------------------------- solve the first stage model -------------------------------- ##
@@ -149,8 +155,9 @@ for k in 1:20
       u = state_value + c;
       totalCost[(k, probEmpty)] = u;
   end
-  save("src/Experiments/WeightTest/totalCost.jld2", "totalCost", totalCost)
+  save("src/Experiments/WeightTest/totalCostNew4.jld2", "totalCost", totalCost)
 end
-save("src/Experiments/WeightTest/totalCost.jld2", "totalCost", totalCost)
-totalCost = load("src/Experiments/WeightTest/totalCost.jld2")["totalCost"]
+save("src/Experiments/WeightTest/totalCostNew.jld2", "totalCost", totalCost)
+totalCost = load("src/Experiments/WeightTest/totalCostNew.jld2")["totalCost"]
+
 
