@@ -100,7 +100,7 @@ xs = [20, 50, 100, 200, 500]
 μs1, σs1, max1, min1 = mean.(eachcol(costUBDF)),   std.(eachcol(costUBDF)), maximum.(eachcol(costUBDF)), minimum.(eachcol(costUBDF))
 μs2, σs2, max2, min2 = mean.(eachcol(costLBDF)),   std.(eachcol(costLBDF)), maximum.(eachcol(costLBDF)), minimum.(eachcol(costLBDF))
 # plot ribbon
-Plots.plot( xs, μs1, color=:lightblue, ribbon= (μs1 .- min1, max1 .- μs1),label=false)
+p = Plots.plot( xs, μs1, color=:lightblue, ribbon= (μs1 .- min1, max1 .- μs1),label=false)
 Plots.plot!( xs, μs2, color=:pink, ribbon= (μs2 .- min2, max2 .- μs2),label=false)
 # plot mean point
 Plots.plot!(xs, μs1, color=:blue, marker=(:circle, 8, 1.), label="Upper Bound")
@@ -110,15 +110,16 @@ Plots.plot!(xs, μs2, color=:red, marker=(:circle, 8, 1.), label="Lower Bound", 
 n = 5; ## the number of columns
 YLB = [costLBDF[:, i] for i in 1:n]
 Ym = mean.(YLB)
-ϵ⁻ = 1.96 .* σs2/sqrt(20)
-ϵ⁺ = 1.96 .* σs2/sqrt(20)
+ϵ⁻ = 1.96 .* σs2
+ϵ⁺ = 1.96 .* σs2
 scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false)
 
 YUB = [costUBDF[:, i] for i in 1:n]
 Ym = mean.(YUB)
-ϵ⁻ = 1.96 .* σs1/sqrt(20)
-ϵ⁺ = 1.96 .* σs1/sqrt(20)
+ϵ⁻ = 1.96 .* σs1
+ϵ⁺ = 1.96 .* σs1
 scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false, title = "Confidence intervals and point estimates of bounds")
+savefig(p, "/Users/aaron/WildFire_Power/src/Experiments/ScenariosSizeTest/ConfidenceInterval.pdf")
 
 
 

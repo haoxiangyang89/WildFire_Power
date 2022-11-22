@@ -38,7 +38,7 @@ using Plots; pyplot()
 xs = [20, 50, 100, 200, 500]
 μs1, σs1, max1, min1 = mean.(eachcol(gapDF)),   std.(eachcol(gapDF)), maximum.(eachcol(gapDF)), minimum.(eachcol(gapDF))
 # plot ribbon
-Plots.plot( xs, μs1, color=:lightblue, ribbon=(μs1 .- min1, max1 .- μs1),label=false)
+p = Plots.plot( xs, μs1, color=:lightblue, ribbon=(μs1 .- min1, max1 .- μs1),label=false)
 # plot mean point
 Plots.plot!(xs, μs1, color=:blue, marker=(:circle, 8, 1.), label="Optimality Gap",  xlab = "Sample size", ylab = "Value of Gap")
 
@@ -46,12 +46,12 @@ Plots.plot!(xs, μs1, color=:blue, marker=(:circle, 8, 1.), label="Optimality Ga
 n = 5; ## the number of columns
 YUB = [gapDF[:, i] for i in 1:n]
 Ym = mean.(YUB)
-ϵ⁻ = 1.96 .* σs1/sqrt(20)
-ϵ⁺ = 1.96 .* σs1/sqrt(20)
-scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false, title = "Confidence intervals and point estimates of optimality gaps")
+ϵ⁻ = 1.96 .* σs1
+ϵ⁺ = 1.96 .* σs1
+scatter!(xs, Ym, ms=6, yerror=(ϵ⁻, ϵ⁺), label= false, title = "CIs and point estimates of optimality gaps")
 
+savefig(p, "/Users/aaron/WildFire_Power/src/Experiments/ConfidenceInterval/CI.pdf")
 
-#  σs1[5] = 65, max1[5] = 330, min1[5] = 60
 
 ## ------------------------------- Data Processing ------------------------------ #
 ## compute CI
@@ -59,7 +59,8 @@ using Distributions
 function t_test(x; conf_level=0.95)
     alpha = (1 - conf_level)
     tstar = quantile(TDist(length(x)-1), 1 - alpha/2)
-    SE = std(x)/sqrt(length(x))
+    # SE = std(x)/sqrt(length(x))
+    SE = std(x)
 
     lo, hi = mean(x) .+ [-1, 1] * tstar * SE
     "($lo, $hi)"
@@ -112,3 +113,6 @@ t_test(gapDF[:,5])
 #     annotate!(x + rand((-dx,dx)), y + rand((-dy,dy)), (nm, 7, c))
 # end
 # Plots.current()
+
+# min1[4] = 310; σs1[4] = 130;
+# σs1[5] = 65; max1[5] = 230; min1[5] = 40

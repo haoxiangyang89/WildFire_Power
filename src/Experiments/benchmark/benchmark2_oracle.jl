@@ -10,8 +10,10 @@ function banchmark2_oracle!(randomVariables::RandomVariables;                   
     τ = randomVariables.τ;
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
-                "OutputFlag" => 0, 
-                "Threads" => 0) 
+                "OutputFlag" => 1, 
+                "Threads" => 0, 
+                "MIPGap" => 1e-2, 
+                "TimeLimit" => 20) 
                 )
 
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i
@@ -110,8 +112,7 @@ end
 function benchmarkOracle!(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
                         indexSets::IndexSets = indexSets, 
                         paramDemand::ParamDemand = paramDemand, 
-                        paramOPF::ParamOPF = paramOPF)
-        
+                        paramOPF::ParamOPF = paramOPF)    
     costOracle = Dict{Int64, Float64}()
     for ω in indexSets.Ω
         randomVariables = Ω_rv[ω];
@@ -122,9 +123,6 @@ function benchmarkOracle!(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
         costOracle[ω] = state_value
     end
 
-
-
     return costOracle
-
 end
 

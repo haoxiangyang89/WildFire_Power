@@ -2,73 +2,67 @@
 #  That is, scenario size = [10, 20, 50, 80, 100, 120], we obtain the first-stage decision for each case
 #  And test this decision to a new data set scenario size = 100
 
+include("testData_RTS_New/gurobiTest.jl")
+
+
+
 ## -----------------------------------  Generate the first-stage decision  ---------------------------------------- ##
 gurobiResultList = Dict{Any, Any}()
 
-indexSets = load("testData_RTS/indexSets.jld2")["indexSets"]
-paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
-paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
-Ω_rvList = load("testData_RTS/Ω_rvList.jld2")["Ω_rvList"]
+indexSets = load("testData_RTS_New/indexSets.jld2")["indexSets"]
+paramOPF = load("testData_RTS_New/paramOPF.jld2")["paramOPF"]
+paramDemand = load("testData_RTS_New/paramDemand.jld2")["paramDemand"]
+ignitionList = load("testData_RTS_New/ignitionList.jld2")["ignitionList"]
+@load "emptyScenario.jld2" emptyScenario
 
-@load "testData_RTS/emptyScenario.jld2" emptyScenario
 
-Ω = 50; 
-pList = [0.0, 0.01, 0.05, .5, .9, 0.95, 0.99, 1.0];
-probList = Dict{Float64, Any}()
-for p in pList
-    prob = Dict{Int64, Float64}();
-    for ω in 1:Ω
-        prob[ω] = (1 - p)/Ω;
-    end
-    prob[9] = prob[9] + p
-    probList[p] = prob
-end
+
+pList = [0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
 
 for p in pList
   for i in 1:20 
-    @info "$p, $i"
-    Ω_rv = Ω_rvList[(Ω, i)]; indexSets.Ω = [1:Ω...];
-    Ω_rv[9] = emptyScenario;
+      @info "$p, $i"
+      Ω_rv = ignitionList[(50, i)]; indexSets.Ω = [1:50...];
 
-    # timelimit = Ω >= 100 ? 14400 : 6000
-    gurobiResultList[(p, i)] = gurobiOptimize!(indexSets, 
-                                        paramDemand, 
-                                        paramOPF, 
-                                        Ω_rv,
-                                        probList[p]; 
-                                        mipGap = 1e-2, timelimit = 1800); 
+      prob = Dict{Int64, Float64}();
+      for ω in indexSets.Ω 
+          prob[ω] = p/50;
+      end
+
+      prob[50] = (1 - p) + prob[50]
+
+      gurobiResultList[(p, i)] = gurobiOptimizeTest!(indexSets, 
+                                          paramDemand, 
+                                          paramOPF, 
+                                          Ω_rv,
+                                          prob; 
+                                          mipGap = 1e-2, timelimit = 6000); 
   end
-  save("src/Experiments/WeightTest/gurobiResultListNew.jld2", "gurobiResultList", gurobiResultList)
+  save("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 end
 
-save("src/Experiments/WeightTest/gurobiResultListNew.jld2", "gurobiResultList", gurobiResultList)
-# gurobiResultList = load("src/Experiments/WeightTest/gurobiResultListNew.jld2")["gurobiResultList"]
+save("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
+
+# gurobiResultList = load("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2")["gurobiResultList"]
 
 
 
 ## ------------------------------  Compute total costs by using different decisions  ----------------------------- ##
 ## scenario size = 200
-totalCost = Dict{Tuple{Int64, Float64}, Float64}()
+totalCost = Dict{Tuple{Int64, Real}, Float64}()
 
-indexSets = load("testData_RTS/indexSets.jld2")["indexSets"]
-paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
-paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("testData_RTS/Ω_rv5000.jld2")["Ω_rv"]
-indexSets.Ω = [1:5000...]
-prob = Dict{Int64, Float64}();
+indexSets = load("testData_RTS_New/indexSets.jld2")["indexSets"]
+paramOPF = load("testData_RTS_New/paramOPF.jld2")["paramOPF"]
+paramDemand = load("testData_RTS_New/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("testData_RTS_New/wholeSpace.jld2")["wholeSpace"]
+indexSets.Ω = [1:101...]
+prob = load("testData_RTS_New/prob.jld2")["prob"]
 
-p = 1.0;
-for ω in 1:5000 
-    prob[ω] = p/5000;
-end
-prob[1090] = prob[1090] + ( 1- p );
 
-gurobiResultList = load("src/Experiments/WeightTest/gurobiResultListNew.jld2")["gurobiResultList"]
+for k in 1:20 
+    for p in pList 
 
-for k in 1:20
-  for probEmpty in [0.0, 0.01, 0.05, .5, .9, 0.95, 0.99, 1.0]
-
-      state_variable = gurobiResultList[(probEmpty, k)].first_state_variable;
+      state_variable = gurobiResultList[(p, k)].first_state_variable;
       ## -------------------------------- solve the first stage model -------------------------------- ##
       (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω);
       (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L);
@@ -123,12 +117,12 @@ for k in 1:20
                                                                                                                                       for ω in Ω )  
                 );
       optimize!(Q);
-      state_value  = JuMP.objective_value(Q);
- 
+      state_value  = JuMP.objective_value(Q); 
+                                                                                                                                        
       ## stage 2
       c = 0.0;
       for ω in indexSets.Ω
-        @info "$probEmpty, $k, $ω"
+        @info "$k, $p, $ω"
         randomVariables = Ω_rv[ω];
         forward2Info = forward_stage2_model!(indexSets, 
                                               paramDemand,
@@ -153,11 +147,11 @@ for k in 1:20
         c = c + prob[ω] * JuMP.objective_value(forward2Info.model);
       end
       u = state_value + c;
-      totalCost[(k, probEmpty)] = u;
-  end
-  save("src/Experiments/WeightTest/totalCostNew4.jld2", "totalCost", totalCost)
+      totalCost[(k, p)] = u;
+      save("testData_RTS_New/Experiments/ProbTest/totalCost.jld2", "totalCost", totalCost)
+    end
 end
-save("src/Experiments/WeightTest/totalCostNew.jld2", "totalCost", totalCost)
-totalCost = load("src/Experiments/WeightTest/totalCostNew.jld2")["totalCost"]
+save("testData_RTS_New/Experiments/ProbTest/totalCost.jld2", "totalCost", totalCost)
 
+totalCost = load("testData_RTS_New/Experiments/ProbTest/totalCost.jld2")["totalCost"]
 

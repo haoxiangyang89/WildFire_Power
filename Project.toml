@@ -1,0 +1,6 @@
+[deps]
+ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+PowerModelsAnalytics = "7425d11c-6b70-11e9-2bc6-9bcd3191d4b9"
+PowerPlots = "229d1e32-5c67-4c9a-a884-d6a3a7f23cfa"
+VegaDatasets = "0ae4a718-28b7-58ec-9efb-cded64d6d5b4"
