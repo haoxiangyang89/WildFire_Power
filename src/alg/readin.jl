@@ -52,23 +52,23 @@ function prepareIndexSets(  network_data::Dict{String, Any},
     for i in keys(network_data["load"])
         d = network_data["load"][i]["index"]
         b = network_data["load"][i]["load_bus"]
-        w[d] = round(rand(Uniform(1, 10))^2 * 10)                                  ## priority level of load d
+        w[d] = wsample([50, 100, 150, 200, 250, 300, 500, 600, 700, 1000], [8, 8, 10, 8, 2, 3, 1, 1, 1, .5], 1)[1]                                 ## priority level of load d
 
         push!(Dᵢ[b], d)
         push!(D, d)
         for t in 1:T 
             if 1 ≤ t ≤ 7
-                demand = network_data["load"][i]["pd"] * 0.7   
+                demand = network_data["load"][i]["pd"] * 1.0
             elseif 8 ≤ t ≤ 9
-                demand = network_data["load"][i]["pd"] * 0.8
+                demand = network_data["load"][i]["pd"] * 1.1
             elseif 10 ≤ t ≤ 12  
-                demand = network_data["load"][i]["pd"] * 1.0 
+                demand = network_data["load"][i]["pd"] * 1.35 
             elseif 13 ≤ t ≤ 14  
-                demand = network_data["load"][i]["pd"] * 0.9 
+                demand = network_data["load"][i]["pd"] * 1.2
             elseif 15 ≤ t ≤ 20  
-                demand = network_data["load"][i]["pd"] * 1.0 
+                demand = network_data["load"][i]["pd"] * 1.35 
             elseif 21 ≤ t ≤ 24   
-                demand = network_data["load"][i]["pd"] * 0.7
+                demand = network_data["load"][i]["pd"] * 1.2
             end   
             Demand[t][d] = demand
         end
@@ -284,7 +284,7 @@ function prepareScenarios( ;period_span::Int64 = 1,
             # sum(forest.ignition)
             # sum(forest.busFired)
             # sum(forest.lineFired)
-            if sum(forest.lineFired) > 2 && sum(forest.busFired) > 1
+            if sum(forest.lineFired) > 2 && sum(forest.busFired) > 0
                 τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
@@ -361,19 +361,19 @@ function prepareScenarios( ;period_span::Int64 = 1,
                                                                     griddims = (x_grid_num2, y_grid_num2), 
                                                                     environmentInfo = environmentInfo, 
                                                                     time_span = 1, line_id_location = line_id_location2)
-            Agents.step!(forest_single_component, agent_step!, wildfire_ignition_step!, 10)
+            Agents.step!(forest_single_component, agent_step!, wildfire_ignition_step!, rand(Poisson(5),1)[1])
             if sum(forest_single_component.lineFired) > 0
                 for I in findall(isequal(1), forest_single_component.lineFired)
                     push!(Ibl[faultID], line_id_bus2[line_location_id2[I.I].id])
 
                     for g in Gᵢ[line_id_bus2[line_location_id2[I.I].id][1]]
-                        if rand(Binomial(1, .3), 1)[1] == 1
+                        if rand(Binomial(1, .8), 1)[1] == 1
                             push!(Ilg[line_id_bus2[line_location_id2[I.I].id]], g)
                         end 
                     end
 
                     for g in Gᵢ[line_id_bus2[line_location_id2[I.I].id][2]]
-                        if rand(Binomial(1, .3), 1)[1] == 1
+                        if rand(Binomial(1, .8), 1)[1] == 1
                             push!(Ilg[line_id_bus2[line_location_id2[I.I].id]], g)
                         end 
                     end
@@ -384,14 +384,16 @@ function prepareScenarios( ;period_span::Int64 = 1,
                 for I in findall(isequal(1), forest_single_component.busFired)
                     push!(Ibb[faultID], bus_location_id2[I.I])
                     for g in Gᵢ[bus_location_id2[I.I]]
-                        if rand(Binomial(1, .5), 1)[1] == 1
+                        if rand(Binomial(1, .3), 1)[1] == 1
                             push!(Ibg[bus_location_id2[I.I]], g)
                         end 
                     end
                 end
 
                 for g in Gᵢ[faultID]
-                    push!(Ibg[faultID], g)
+                    if rand(Binomial(1, .3), 1)[1] == 1
+                        push!(Ibg[faultID], g)
+                    end 
                 end
             end 
 
@@ -416,25 +418,43 @@ function prepareScenarios( ;period_span::Int64 = 1,
 
         for b in faultBus 
             for g in Gᵢ[b]
-                if rand(Binomial(1, .9), 1)[1] == 1
+                if rand(Binomial(1, .3), 1)[1] == 1
                     push!(Ibg[b], g)
-                    push!(Igb[g], b)
+                    # push!(Igb[g], b)
                 end 
 
-                for g2 in Gᵢ[b]
-                    if rand(Binomial(1, .9), 1)[1] == 1
-                        push!(Igg[g], g2)
-                    end 
-                end
+                # for g2 in Gᵢ[b]
+                #     if rand(Binomial(1, .9), 1)[1] == 1
+                #         push!(Igg[g], g2)
+                #     end 
+                # end
 
-                if rand(Binomial(1, .9), 1)[1] == 1
-                    if !isempty(out_L[b])
-                        b2 = out_L[b][rand(1:end)]
-                        push!(Igl[g], (b, b2))
-                    end
-                end
+                # if rand(Binomial(1, .9), 1)[1] == 1
+                #     if !isempty(out_L[b])
+                #         b2 = out_L[b][rand(1:end)]
+                #         push!(Igl[g], (b, b2))
+                #     end
+                # end
             end
         end 
+        for (key, item) in Ibb 
+            Ibb[key] = unique(Ibb[key])
+            Ibg[key] = unique(Ibg[key])
+            Ibl[key] = unique(Ibl[key])
+        end
+
+        for (key, item) in Ilb 
+            Ilb[key] = unique(Ilb[key])
+            Ilg[key] = unique(Ilg[key])
+            Ill[key] = unique(Ill[key])
+        end
+
+        for (key, item) in Igg 
+            Igg[key] = unique(Igg[key])
+            Igb[key] = unique(Igb[key])
+            Igl[key] = unique(Igl[key])
+        end
+
         Ω_rv[ω] = RandomVariables(τ, ub, ug, ul, vb, vg, vl, Ibb, Ibg, Ibl, Igb, Igg, Igl, Ilb, Ilg, Ill)
     end
 

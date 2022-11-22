@@ -165,7 +165,8 @@ function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_lo
         for pos in line_id_location[id] 
             forest.lineExist[pos...] = 1
             forest.multiLine[pos...] = forest.multiLine[pos...] + 1
-            forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI / 5  
+            # forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI / 5  
+            forest.fault_WFPI[pos...] = line_location_id[pos].WFPI 
             forest.lineLength[pos...] = forest.lineLength[pos...] + line_location_id[pos].Length/4  
         end
     end
@@ -330,7 +331,8 @@ function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}
         for pos in line_id_location[id] 
             forest.lineExist[pos...] = 1
             forest.multiLine[pos...] = forest.multiLine[pos...] + 1
-            forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI   
+            # forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI / 5  
+            forest.fault_WFPI[pos...] = line_location_id[pos].WFPI  
             forest.lineLength[pos...] = forest.lineLength[pos...] + line_location_id[pos].Length/4  
         end
     end

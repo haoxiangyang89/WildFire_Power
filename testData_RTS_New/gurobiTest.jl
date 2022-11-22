@@ -167,16 +167,15 @@ function gurobiOptimizeTest!(indexSets::IndexSets,
                                                 sum(paramDemand.cl[l] * JuMP.value.(νl[l, ω]) for l in L)
                                                                                   
     end
-    first_state_variable[:zg]
-    sum(first_state_variable[:zg][:, 1])
-    JuMP.value.(x)
-    JuMP.value.(xω[:, :, 9])
-    sum(JuMP.value.(xω[:, :, 9])[:, 24])
-
-
-
+    x_value = JuMP.value.(x)
+    xω_value = JuMP.value.(xω)
+    
     return (OPT = JuMP.objective_value(model), 
             first_state_variable = first_state_variable, 
-            unsatisfiedDemandCost = unsatisfiedDemandCost, damageCost = damageCost)
+            unsatisfiedDemandCost = unsatisfiedDemandCost, 
+            damageCost = damageCost, 
+            x = x_value, 
+            xω = xω_value
+            )
 end
 

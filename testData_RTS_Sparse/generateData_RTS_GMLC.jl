@@ -45,13 +45,13 @@ for ω in 1:(Ω - 1)
 end
 prob[Ω] = .9
 
-save("testData_RTS_New/indexSets.jld2", "indexSets", indexSets)
-save("testData_RTS_New/paramOPF.jld2", "paramOPF", paramOPF)
-save("testData_RTS_New/paramDemand.jld2", "paramDemand", paramDemand)
-save("testData_RTS_New/Ω_rv.jld2", "Ω_rv", Ω_rv)
-save("testData_RTS_New/prob.jld2", "prob", prob)
-# save("testData_RTS_New/wholeSpace.jld2", "wholeSpace", wholeSpace)
-# @load "testData_RTS_New/wholeSpace.jld2" wholeSpace
+save("testData_RTS_Sparse/indexSets.jld2", "indexSets", indexSets)
+save("testData_RTS_Sparse/paramOPF.jld2", "paramOPF", paramOPF)
+save("testData_RTS_Sparse/paramDemand.jld2", "paramDemand", paramDemand)
+save("testData_RTS_Sparse/Ω_rv.jld2", "Ω_rv", Ω_rv)
+save("testData_RTS_Sparse/prob.jld2", "prob", prob)
+# save("testData_RTS_Sparse/wholeSpace.jld2", "wholeSpace", wholeSpace)
+# @load "testData_RTS_Sparse/wholeSpace.jld2" wholeSpace
 
 
 
@@ -70,7 +70,7 @@ for N in [50, 100, 200, 500]
 
         Ω_rvList[N, i] = Ω_rv
     end
-    save("testData_RTS_New/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
+    save("testData_RTS_Sparse/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
 end
 
 
@@ -89,7 +89,7 @@ for N in [50]
 
         ignitionList[N, i] = Ω_rv
     end
-    save("testData_RTS_New/ignitionList.jld2", "ignitionList", ignitionList)
+    save("testData_RTS_Sparse/ignitionList.jld2", "ignitionList", ignitionList)
 end
 
 
@@ -110,7 +110,7 @@ end
 #                                     T = T, 
 #                                     Ω = Ω, 
 #                                     indexSets = indexSets, line_id_bus = line_id_bus);
-# save("testData_RTS_New/Ω_rv5000.jld2", "Ω_rv", Ω_rv)
+# save("testData_RTS_Sparse/Ω_rv5000.jld2", "Ω_rv", Ω_rv)
 
 
 # T = 24;
@@ -128,7 +128,7 @@ end
 #                                     T = T, 
 #                                     Ω = Ω, 
 #                                     indexSets = indexSets, line_id_bus = line_id_bus);
-# save("testData_RTS_New/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
+# save("testData_RTS_Sparse/Ω_rv10000.jld2", "Ω_rv", Ω_rv)
 
 
 # num = 100; i = 9, 15, 14
@@ -151,5 +151,5 @@ end
 #                                             Ω = Ω, 
 #                                             indexSets = indexSets, line_id_bus = line_id_bus);
 #     end
-#     save("testData_RTS_New/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
+#     save("testData_RTS_Sparse/Ω_rvList.jld2", "Ω_rvList", Ω_rvList)
 # end
