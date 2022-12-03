@@ -38,12 +38,12 @@ for p in pList
                                           prob; 
                                           mipGap = 1e-2, timelimit = 6000); 
   end
-  save("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
+  save("src/Experiments/ProbTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 end
 
-save("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
+save("src/Experiments/ProbTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 
-# gurobiResultList = load("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2")["gurobiResultList"]
+# gurobiResultList = load("src/Experiments/ProbTest/gurobiResultList.jld2")["gurobiResultList"]
 
 
 
@@ -148,10 +148,10 @@ for k in 1:20
       end
       u = state_value + c;
       totalCost[(k, p)] = u;
-      save("testData_RTS_New/Experiments/ProbTest/totalCost.jld2", "totalCost", totalCost)
+      save("src/Experiments/ProbTest/totalCost.jld2", "totalCost", totalCost)
     end
 end
-save("testData_RTS_New/Experiments/ProbTest/totalCost.jld2", "totalCost", totalCost)
+save("src/Experiments/ProbTest/totalCost.jld2", "totalCost", totalCost)
 
-totalCost = load("testData_RTS_New/Experiments/ProbTest/totalCost.jld2")["totalCost"]
+totalCost = load("src/Experiments/ProbTest/totalCost.jld2")["totalCost"]
 

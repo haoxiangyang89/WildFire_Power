@@ -1,7 +1,7 @@
 using CSV, DataFrames, Printf, Gurobi, JuMP
 using JLD2, FileIO
 
-totalCost = load("testData_RTS_New/Experiments/ProbTest/totalCost.jld2")["totalCost"]
+totalCost = load("src/Experiments/ProbTest/totalCost.jld2")["totalCost"]
 
 ## ------------------------------ Transfer into two dataframes ----------------------------- ##
 # first one

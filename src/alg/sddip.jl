@@ -85,8 +85,7 @@ function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
                                                     paramDemand, 
                                                     paramOPF, 
                                                     Ω_rv,
-                                                    prob,
-                                                    cut_collection;  ## the index is ω
+                                                    prob;  
                                                     θ_bound = 0.0);
     forward2Info_List = Dict{Int64, Forward2Info}();
     for ω in indexSets.Ω
@@ -146,8 +145,7 @@ function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
         end
 
         ## compute the upper bound
-        # UB = minimum([mean(u), UB]); 
-        UB = mean(u);
+        UB = minimum([mean(u), UB]); 
         gap = round((UB-LB)/UB * 100 ,digits = 2); gapString = string(gap,"%");
         push!(sddipResult, [i, LB, OPT, UB, gapString, iter_time, total_Time]); push!(gapList, gap);
         if i == 1
