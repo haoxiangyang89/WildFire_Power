@@ -160,7 +160,7 @@ function prepareSimulation(businfo::DataFrame, branchInfo::DataFrame, WFPI_Info:
     row_num = 1
     for id in 1: nrow(branchInfo)
         length = branchInfo[id, 14]
-        WFPI_value = WFPI_Info[id, 3]/(sum(WFPI_Info[:,3]) * 1)   ## normalized WFPI
+        WFPI_value = WFPI_Info[id, 3]/sum(WFPI_Info[:,3])   ## normalized WFPI
         from_bus = branchInfo[id, 2]
         to_bus = branchInfo[id, 3]
         line_id_bus[id] = (from_bus, to_bus)
@@ -274,15 +274,15 @@ function prepareScenarios( ;period_span::Int64 = 1,
         
         forest = initialize(bus_id_location, line_location_id;  griddims = (x_grid_num, y_grid_num), 
                         environmentInfo = environmentInfo, time_span = 1);
-        faultLine = []
+
         ## generate wildfire random variables
         # disruption_not_occur = true
         for i in 1:floor((T/period_span))
-            Agents.step!(forest, exogenous_agent_step!, exogenous_wildfire_step!, period_span)
+            Agents.step!(forest, agent_step!, wildfire_ignition_step!, period_span)
             # sum(forest.ignition)
             # sum(forest.busFired)
             # sum(forest.lineFired)
-            if sum(forest.lineFired) ≥ 1 && sum(forest.lineFault) ≥ 1
+            if sum(forest.lineFired) > 2 && sum(forest.busFired) > 0
                 τ = i * period_span
                 if sum(forest.lineFired) > 0
                     for I in findall(isequal(1), forest.lineFired)
@@ -305,13 +305,46 @@ function prepareScenarios( ;period_span::Int64 = 1,
                 if sum(forest.lineFault) > 0
                     for I in findall(isequal(1), forest.lineFault)
                         id = line_location_id[I.I].id
-                        ul[line_id_bus[id]] = 1
-                        push!(faultLine, id)
+                        ul[line_id_bus[id]] = rand(Binomial(1, .1), 1)[1]
                     end
                 end
+
+                if sum(forest.busFault) > 0
+                    for I in findall(isequal(1), forest.busFault)
+                        bus_id = bus_location_id[I.I]
+                        ub[bus_id] = 1
+                    end
+                end
+
                 break
             end
         end
+
+        ## generate fault random variables
+        for l in L 
+            if ul[l] == 1
+                ub[l[1]] = rand(Binomial(1, .1), 1)[1]
+                ub[l[2]] = rand(Binomial(1, .1), 1)[1]
+            end
+        end
+
+
+        for b in B 
+            if ub[b] == 1
+                for g in Gᵢ[b]
+                    ug[g] = rand(Binomial(1, .8), 1)[1]
+                end
+            end
+        end
+
+
+        faultBus = []
+        for b in keys(ub)
+            if ub[b] == 1
+                push!(faultBus, b)
+            end 
+        end
+
 
         # to generate the random sets
         (x_grid_num2, y_grid_num2, line_location_id2, 
@@ -320,34 +353,88 @@ function prepareScenarios( ;period_span::Int64 = 1,
                                     bus_id_location2, 
                                     bus_location_id2) = prepareSimulation(businfo, branchInfo, WFPI_Info; n = 10, grid_length = 5000);
 
-        for faultID in faultLine 
-            firedPos = line_id_location2[faultID]
+        for faultID in faultBus 
+            firedPos = bus_id_location2[faultID]
             forest_single_component = initialize_single_component!(firedPos, bus_id_location2, line_location_id2;  
                                                                     griddims = (x_grid_num2, y_grid_num2), 
                                                                     environmentInfo = environmentInfo, 
                                                                     time_span = 1, line_id_location = line_id_location2)
-            Agents.step!(forest_single_component, endogenous_agent_step!, endogenous_wildfire_step!, Int64(24 - τ))
+            Agents.step!(forest_single_component, agent_step!, wildfire_ignition_step!, rand(Poisson(5),1)[1])
             if sum(forest_single_component.lineFired) > 0
                 for I in findall(isequal(1), forest_single_component.lineFired)
-                    l = line_id_bus2[faultID]
-                    push!(Ill[l], line_id_bus2[line_location_id2[I.I].id])
-                    push!(Ilb[l], l[1]); push!(Ilb[l], l[2]); 
+                    push!(Ibl[faultID], line_id_bus2[line_location_id2[I.I].id])
 
                     for g in Gᵢ[line_id_bus2[line_location_id2[I.I].id][1]]
-                        if rand(Binomial(1, .3), 1)[1] == 1
-                            push!(Ilg[l], g)
+                        if rand(Binomial(1, .8), 1)[1] == 1
+                            push!(Ilg[line_id_bus2[line_location_id2[I.I].id]], g)
                         end 
                     end
 
                     for g in Gᵢ[line_id_bus2[line_location_id2[I.I].id][2]]
-                        if rand(Binomial(1, .3), 1)[1] == 1
-                            push!(Ilg[l], g)
+                        if rand(Binomial(1, .8), 1)[1] == 1
+                            push!(Ilg[line_id_bus2[line_location_id2[I.I].id]], g)
                         end 
                     end
                 end
             end
+
+            if sum(forest_single_component.busFired) > 0
+                for I in findall(isequal(1), forest_single_component.busFired)
+                    push!(Ibb[faultID], bus_location_id2[I.I])
+                    for g in Gᵢ[bus_location_id2[I.I]]
+                        if rand(Binomial(1, .3), 1)[1] == 1
+                            push!(Ibg[bus_location_id2[I.I]], g)
+                        end 
+                    end
+                end
+
+                for g in Gᵢ[faultID]
+                    if rand(Binomial(1, .3), 1)[1] == 1
+                        push!(Ibg[faultID], g)
+                    end 
+                end
+            end 
+
         end
 
+        for l in L 
+            if vl[l] == 1
+                push!(Ilb[l], l[rand(1:end)]) 
+                
+                if !isempty(out_L[l[1]])
+                    b2 = out_L[l[1]][rand(1:end)]
+                    push!(Ill[l], (l[1], b2))
+                end
+
+                if !isempty(out_L[l[2]])
+                    b2 = in_L[l[2]][rand(1:end)]
+                    push!(Ill[l], (b2, l[2]))
+                end
+            end
+        end
+
+
+        for b in faultBus 
+            for g in Gᵢ[b]
+                if rand(Binomial(1, .3), 1)[1] == 1
+                    push!(Ibg[b], g)
+                    # push!(Igb[g], b)
+                end 
+
+                # for g2 in Gᵢ[b]
+                #     if rand(Binomial(1, .9), 1)[1] == 1
+                #         push!(Igg[g], g2)
+                #     end 
+                # end
+
+                # if rand(Binomial(1, .9), 1)[1] == 1
+                #     if !isempty(out_L[b])
+                #         b2 = out_L[b][rand(1:end)]
+                #         push!(Igl[g], (b, b2))
+                #     end
+                # end
+            end
+        end 
         for (key, item) in Ibb 
             Ibb[key] = unique(Ibb[key])
             Ibg[key] = unique(Ibg[key])

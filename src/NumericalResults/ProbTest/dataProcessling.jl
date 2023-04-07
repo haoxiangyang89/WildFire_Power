@@ -1,7 +1,7 @@
 using CSV, DataFrames, Printf, Gurobi, JuMP
 using JLD2, FileIO
 
-totalCost = load("src/Experiments/ProbTest/totalCost.jld2")["totalCost"]
+totalCost = load("src/NumericalResults/ProbTest/totalCost.jld2")["totalCost"]
 
 ## ------------------------------ Transfer into two dataframes ----------------------------- ##
 # first one
@@ -63,7 +63,7 @@ df = DataFrame(X = X2, Y = Y)
 labels = reshape([0.0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5], 1, 7)
 @df df StatsPlots.boxplot(:X, :Y, legend=:outertopright, label = false, xticks = 0:2.5:15, 
                     ylab = "Total Cost", xlab = "Disruption probability p", title = "Influence of Distributions", ylim = [4700, 7300])
-savefig("src/Experiments/ProbTest/ProbTestBoxPlot.pdf")
+savefig("src/NumericalResults/ProbTest/ProbTestBoxPlot.pdf")
 
 
 

@@ -164,7 +164,7 @@ function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_lo
     for id in keys(line_id_location)
         for pos in line_id_location[id] 
             forest.lineExist[pos...] = 1
-            forest.multiLine[pos...] = forest.multiLine[pos...] + 1 # minimum([forest.multiLine[pos...] + 1,3])
+            forest.multiLine[pos...] = forest.multiLine[pos...] + 1
             # forest.fault_WFPI[pos...] = forest.fault_WFPI[pos...] + line_location_id[pos].WFPI / 5  
             forest.fault_WFPI[pos...] = line_location_id[pos].WFPI 
             forest.lineLength[pos...] = forest.lineLength[pos...] + line_location_id[pos].Length/4  
@@ -176,33 +176,34 @@ function initialize(relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_lo
 end
 
 
-## an agent is the representative of the exdogenous fire in this cell 
-function exogenous_agent_step!(agent, forest)
+
+function agent_step!(agent, forest)
     windInfo = WindInfo(forest.windInfo[1], forest.windInfo[2])
     time_span = forest.time_span
     if agent.state == 2
         ## If it is burning previously, then it is burnt now
         agent.state = rand(forest.rng) <= time_span/24 ? 3 : agent.state
     elseif agent.state == 1
-        ## If this cell has fuel, then its state becomes burning with probability controlled by wfpi
-        agent.state = rand(1)[1] <= forest.fault_WFPI[agent.pos...] ? 2 : agent.state
-
-        # exdogenous fire spread
-        burntCell = false  # a binary variable to record whether there is a burnt cell  
-        p = 0;
-        for neighbor in nearby_agents(agent, forest, 1)
-            if neighbor.state == 3
-                burntCell = true 
-                p = maximum([Probability_burn(neighbor, agent; windInfo = windInfo, P₀ = .58), p])
+        ## If this cell has an ignition, then its state becomes burning
+        if forest.ignition[agent.pos...] == 1
+            # agent.state = 2
+            agent.state = rand(forest.rng) <= time_span/24 ? 2 : agent.state
+        else
+            ## If nearby agent is burnt, then its state becomes burning
+            for neighbor in nearby_agents(agent, forest, 1)
+                if neighbor.state ≥ 2
+                    p = Probability_burn(neighbor, agent; windInfo = windInfo, P₀ = .58)
+                    agent.state = rand(1)[1] <= p ? 2 : 1
+                end
             end
-        end
-        if burntCell 
-            agent.state = rand(1)[1] <= p ? 2 : agent.state
         end
     end
 
-    if agent.state ≥ 1
-        forest.ignition[agent.pos...] = agent.state - 1
+    if forest.lineFault[agent.pos...] == 1
+        for neighbor in nearby_agents(agent, forest, 1)
+            forest.lineFault[neighbor.pos...] = (forest.lineExist[neighbor.pos...] == 1) && (minimum(rand(forest.multiLine[neighbor.pos...])) <= forest.fault_WFPI[neighbor.pos...]) ? 1 : forest.lineFault[neighbor.pos...]
+            forest.busFault[neighbor.pos...] = (forest.busExist[neighbor.pos...] == 1) && (minimum(rand(forest.multiBus[neighbor.pos...])) <= forest.fault_WFPI[neighbor.pos...]) ? 1 : forest.busFault[neighbor.pos...]
+        end
     end
 
     return 
@@ -211,26 +212,57 @@ end
 
 
 
-function exogenous_wildfire_step!(forest::AgentBasedModel)
+function wildfire_ignition_step!(forest::AgentBasedModel)
     # ignition will only occure at the cells that contain fuel (vegetation) but has not ignited w.p. p
+    for id in 1:nagents(forest)
+        agent = forest[id]
+        if (agent.state == 0 || agent.state == 1)
+            # p = Probability_ignition(agent, windInfo)
+            p = 1e-2
+            forest.ignition[agent.pos...] = (rand(forest.rng) <= p && agent.state == 1) ? 1 : forest.ignition[agent.pos...]
+        else 
+            forest.ignition[agent.pos...] = agent.state - 1
+        end
+    end
+
+
     for I in findall(isequal(1), forest.lineExist)
         ## transmission line will fault due to weather factors
         # if true                                                         
         dataClassification = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         windDays = [5, 25, 200, 250, 150, 75, 30, 10, 3, 1]
         lightningDensity = wsample(dataClassification .* 0.09, [0.75, 0.2, 0.15, 0.15, 0.1, 0.08, 0.05, 0.03, 0.02, 0.01], 1)[1]
-        maxWind = wsample(dataClassification, windDays./sum(windDays), 1)[1]
+        maxWind = wsample(dataClassification .* 1.4, windDays./sum(windDays), 1)[1]
 
-        forest.lineFault[I] = minimum(rand(forest.multiLine[I])) <= minimum(Probability_fault(lightningDensity = lightningDensity, maxWind = maxWind, L = forest.lineLength[I])) ? 1 : forest.lineFault[I] 
-
-        ## line is attacked by exdogenous fire
-        forest.lineFired[I] = (forest.ignition[I] == 2) && (minimum(rand(forest.multiLine[I])) <= forest.fault_WFPI[I]) ? 1 : forest.lineFired[I]
+        forest.lineFault[I] = minimum(rand(forest.multiLine[I])) <= mean(Probability_fault(lightningDensity = lightningDensity, maxWind = maxWind, L = forest.lineLength[I])) ? 1 : forest.lineFault[I] 
         # end
+
+        ## the cell will be burnt if it is burning and there is a fault, 
+        if forest.lineFault[I] == 1
+            forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I] ? minimum([2, forest.ignition[I] + 1]) : forest.ignition[I]
+        end
+
+        ## the transmission line is fault, then it may cause a fire
+        forest.lineFired[I] = (forest.ignition[I] == 2) && (minimum(rand(forest.multiLine[I])) <= forest.fault_WFPI[I]) ? 1 : forest.lineFired[I]
     end
 
+
     for I in findall(isequal(1), forest.busExist)
-        ## bus is attacked by exdogenous fire
-        forest.busFired[I] = (forest.ignition[I] == 2) && (minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I]) ? 1 : forest.busFired[I]
+        if forest.lineFault[I] == 1  ## if the cell with one bus is burning, we say this bus is fired
+            forest.busFault[I] = minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I] ? 1 : forest.busFault[I]
+        end
+
+        ## if the cell will be burnt if it is burning and there is a fault
+        if forest.busFault[I] == 1       
+            forest.busFired[I] = minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I] ? 1 : forest.busFired[I]
+        end
+
+        ## if the bus is fault, then it may cause a fire
+        if forest.busFired[I] == 1  
+            forest.ignition[I] = rand(forest.rng) <= forest.fault_WFPI[I] ? 2 : forest.ignition[I]
+        end
+
+        forest.busFired[I] = (forest.ignition[I] ≥ 1) && (minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I]) ? 1 : forest.busFired[I]
     end
 
     dataClassification = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -239,53 +271,6 @@ function exogenous_wildfire_step!(forest::AgentBasedModel)
     forest.windInfo[2] = wsample([0, 80, 150, 200, 240, 280, 310, 350], [0.1, .12, .11, 0.13, 0.14, 0.09, 0.16, 0.15], 1)[1]
 end
 
-
-
-## an agent is the representative of the endogenous fire in this cell 
-function endogenous_agent_step!(agent, forest)
-    windInfo = WindInfo(forest.windInfo[1], forest.windInfo[2])
-    time_span = forest.time_span
-    if agent.state == 2
-        ## If it is burning previously, then it is burnt now
-        agent.state = 3
-    elseif agent.state == 1
-        # endogenous fire spread
-        burntCell = false  # a binary variable to record whether there is a burnt cell 
-        p = 0 ;
-        for neighbor in nearby_agents(agent, forest, 1)
-            if neighbor.state == 3
-                burntCell = true 
-                p = mean([Probability_burn(neighbor, agent; windInfo = windInfo, P₀ = .58), p])
-            end
-        end
-        if burntCell 
-            agent.state = rand(1)[1] <= p ? 2 : agent.state
-        end
-    end
-
-    if agent.state ≥ 1
-        forest.ignition[agent.pos...] = agent.state - 1
-    end
-
-    return 
-end
-
-
-function endogenous_wildfire_step!(forest::AgentBasedModel)
-    for I in findall(isequal(1), forest.lineExist)
-        ## line is attacked by endogenous fire
-        forest.lineFired[I] = (forest.ignition[I] ≥ 2) && (minimum(rand(forest.multiLine[I])) <= forest.fault_WFPI[I]) ? 1 : forest.lineFired[I]
-    end
-
-    for I in findall(isequal(1), forest.busExist)
-        forest.busFired[I] = (forest.ignition[I] ≥ 2) && (minimum(rand(forest.multiBus[I])) <= forest.fault_WFPI[I]) ? 1 : forest.busFired[I]
-    end
-
-    dataClassification = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    windDays = [5, 25, 200, 250, 150, 75, 30, 10, 3, 1]
-    forest.windInfo[1] = wsample(dataClassification * 1.1, windDays./sum(windDays), 1)[1]
-    forest.windInfo[2] = wsample([0, 80, 150, 200, 240, 280, 310, 350], [0.1, .12, .11, 0.13, 0.14, 0.09, 0.16, 0.15], 1)[1]
-end
 
 
 
@@ -293,7 +278,7 @@ end
 ################################################################################################################################################
 #####################################################  Cellular Automton  ######################################################################
 ################################################################################################################################################
-function initialize_single_component!(firedPos::Vector{Tuple{Int64, Int64}}, relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_location_id::Dict{Any, NamedTuple{(:id, :WFPI, :Length), Tuple{Int64, Float64, Union{Float64, Int64}}}} ;  
+function initialize_single_component!(firedPos::Union{Int64, Tuple{Int64, Int64}}, relative_location::Dict{Int64, Tuple{Int64, Int64}}, line_location_id::Dict{Any, NamedTuple{(:id, :WFPI, :Length), Tuple{Int64, Float64, Union{Float64, Int64}}}} ;  
                         griddims::Tuple{Int64, Int64} = (100, 100), 
                             environmentInfo::Dict{Tuple{Int64, Int64}, CellEnvironmentInfo} = environmentInfo, 
                                 time_span::Int64 = 1,
@@ -352,13 +337,9 @@ function initialize_single_component!(firedPos::Vector{Tuple{Int64, Int64}}, rel
         end
     end
 
-    for Pos in firedPos
-        forest.lineFault[Pos...] = 1
-    end
-    
     for agent in allagents(forest) 
-        if agent.pos ∈ firedPos 
-            agent.state = 2
+        if agent.pos == firedPos 
+            agent.state = 3
             forest.busFired[agent.pos...] = 1
             break
         end
