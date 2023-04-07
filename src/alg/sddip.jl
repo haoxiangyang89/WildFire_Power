@@ -57,7 +57,8 @@ function SDDiP_algorithm( ; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
     ## M: num of scenarios when doing one iteration
     initial = now(); T = 2; i = 1; LB = - Inf; UB = Inf;
     iter_time = 0; total_Time = 0; t0 = 0.0;
-    cut_collection = Dict{Int64, CutCoefficient}();  # here, the index is ω
+    cut_collection = Dict{Int64, CutCoefficient}();
+    indexSets.Ω = [1:length(keys(Ω_rv))...];  # here, the index is ω
 
     for ω in indexSets.Ω
 

@@ -124,7 +124,8 @@ function forward_stage2_model!(indexSets::IndexSets,
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     randomVariables::RandomVariables;     
-                                    outputFlag::Int64 = 0
+                                    outputFlag::Int64 = 0, 
+                                    mipGap::Float64 = 1e-3
                                     )
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
@@ -134,7 +135,7 @@ function forward_stage2_model!(indexSets::IndexSets,
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => outputFlag, 
                 "Threads" => 0, 
-                "MIPGap" => 1e-3, 
+                "MIPGap" => mipGap, 
                 "TimeLimit" => 8) 
                 )
 

@@ -1,21 +1,16 @@
-include("src/Experiments/benchmark//optimalShutoff.jl")
-include("src/Experiments/benchmark/benchmark1_trivial.jl")
-include("src/Experiments/benchmark//benchmark2_oracle.jl")
+include("src/Experiments/benchmarks/optimalShutoff.jl")
+include("src/Experiments/benchmarks/benchmark1_trivial.jl")
+include("src/Experiments/benchmarks/benchmark2_oracle.jl")
 
 using Plots, Unitful, UnitfulRecipes
 
-indexSets = load("testData_RTS_Sparse/indexSets.jld2")["indexSets"]
-paramOPF = load("testData_RTS_Sparse/paramOPF.jld2")["paramOPF"]
-paramDemand = load("testData_RTS_Sparse/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("testData_RTS_Sparse/Ω_rv.jld2")["Ω_rv"]
-Solution = load("testData_RTS_Sparse/Solution.jld2")["Solution"]
-zstar = Solution.first_state_variable
-
-prob = Dict{Int64, Float64}(); Ω = length(indexSets.Ω);
-for ω in 1:(Ω - 1) 
-    prob[ω] = round(0.1/(Ω - 1), digits = 4);
-end
-prob[Ω] = .9
+indexSets = load("data/testData_RTS/indexSets.jld2")["indexSets"]
+paramOPF = load("data/testData_RTS/paramOPF.jld2")["paramOPF"]
+paramDemand = load("data/testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("data/testData_RTS/Ω_rv5000_reduced.jld2")["Ω_rv"]
+prob = load("data/testData_RTS/prob5000_reduced.jld2")[prob]
+gurobiResultList = load("src/NumericalResults/computationalPerformance/gurobiResultList.jld2")["gurobiResultList"]
+zstar = gurobiResultList[500,13].first_state_variable
 
 costShutOff = optimalShutOff!(zstar; Ω_rv = Ω_rv);
 costTrivial = benchmarkTrivial!(; Ω_rv = Ω_rv);
@@ -62,11 +57,10 @@ p = Plots.plot(x[5:15], y[5:15,1:3],
                 lw =2, bg="white", # ylims=(minimum(y[:,1:3]), maximum(y[:,1:3])),
                 xlab = "Index of scenarios", 
                 ylab = "Total Cost",
-                ylim = [-500,13000],
-                guidefontsize=17, xtickfontsize=15, ytickfontsize=15, legendfontsize=12, yformatter=y->string(Int(y))
+                ylim = [-500,13000]
                 )
 # hline!(mean(y[:,1:3], dims=1), label = ["meanWS" "meanSO" "meanDET"], line=(2, [:solid :solid :solid], 0.5, [:blue :orange :green]))
 # https://docs.juliahub.com/UnitfulRecipes/KPSlU/1.0.0/examples/2_Plots/#
-savefig(p, "/Users/aaron/WildFire_Power/src/Experiments/benchmark/benchmark.pdf")
+savefig(p, "src/Experiments/benchmarks/benchmark.pdf")
 
 

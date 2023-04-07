@@ -9,12 +9,6 @@ for (i, j) in keys(gurobiResultList)
   UBDF[j, i] = gurobiResultList[i,j].OPT
 end
 
-# for i in 1:20 
-#   totalCost[i, 500] = totalCost[i, 500] - 250 
-#   UBDF[i, 500] = UBDF[i, 500] - 50
-# end
-
-
 
 
 ## ------------------------------ Transfer into two dataframes ----------------------------- ##

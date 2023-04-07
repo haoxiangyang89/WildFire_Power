@@ -9,28 +9,17 @@ using PowerPlots, ColorSchemes, VegaLite
 include("src/alg/def.jl")
 network_data = parse_file("data/RTS_GMLC/case_RTS_GMLC.m")
 
-indexSets = load("testData_RTS_Sparse/indexSets.jld2")["indexSets"]
-paramDemand = load("testData_RTS_Sparse/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("testData_RTS_Sparse/Ω_rv.jld2")["Ω_rv"]
+indexSets = load("data/testData_RTS/indexSets.jld2")["indexSets"]
+paramDemand = load("data/testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("data/testData_RTS/Ω_rvList.jld2")["Ω_rvList"][200, 13]
 
-# indexSets = load("testData_RTS_New/indexSets.jld2")["indexSets"]
-# paramDemand = load("testData_RTS_New/paramDemand.jld2")["paramDemand"]
-# ignitionList = load("testData_RTS_New/ignitionList.jld2")["ignitionList"]
-# Ω_rv = ignitionList[50, 1]
-
-Solution = load("testData_RTS_Sparse/Solution.jld2")["Solution"];
+gurobiResultList = load("src/NumericalResults/ProbTest/gurobiResultList.jld2")["gurobiResultList"];
+Solution = gurobiResultList[.7,1];
 solution = Solution.first_state_variable;
 demandSatisfication = Solution.x;
 
-solution = modelInformationAfterShutOff.first_state_variable;
-demandSatisfication = modelInformationAfterShutOff.x;
-# gurobiResultList = load("testData_RTS_New/Experiments/ProbTest/gurobiResultList.jld2")["gurobiResultList"];
-# Solution1 = gurobiResultList[0.1, 1]; Solution2 = gurobiResultList[0.5, 1]; 
-# solution1 = Solution1.first_state_variable; demandSatisfication1 = Solution1.x;
-# solution2 = Solution2.first_state_variable; demandSatisfication2 = Solution2.x;
-
-
-
+solution = riskValueBasedPlan[α].state_variable;
+demandSatisfication = riskValueBasedPlan[α].x_value;
 
 # scenarioProcessing function
 function scenarioProcessing(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv, 
@@ -72,14 +61,18 @@ function scenarioProcessing(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
     for key in keys(network_data["gen"]) 
         g = network_data["gen"][key]["index"]
         if paramDemand.cg[g] ≤ 50 
-            network_data["gen"][key]["gen_type"] = "Wind"
+            network_data["gen"][key]["gen_type"] = "Low"
         elseif paramDemand.cg[g] ≤ 1000 
-            network_data["gen"][key]["gen_type"] = "Coal"
+            network_data["gen"][key]["gen_type"] = "Middle"
         elseif paramDemand.cg[g] ≤ 2500 
-            network_data["gen"][key]["gen_type"] = "Nuclear"
+            network_data["gen"][key]["gen_type"] = "High"
         end
     end
 
+
+    for key in keys(network_data["bus"]) 
+        network_data["bus"][key]["load_type"] = "None"
+    end
 
     for key in keys(network_data["bus"]) 
         b = network_data["bus"][key]["bus_i"]
@@ -105,9 +98,9 @@ function scenarioProcessing(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
             t_idx=branch["t_bus"]
             branch["power_risk"] = risk[t][:line][(f_idx,t_idx)]
             if t > 1
-                branch["ShutOff"] = solution[:zl][(f_idx, t_idx), t - 1] - solution[:zl][(f_idx, t_idx), t]
+                branch["ShutOff"] = (solution[:zl][(f_idx, t_idx), t - 1] - solution[:zl][(f_idx, t_idx), t]) == 1 ? "De-energized" : "Energized"
             else
-                branch["ShutOff"] = 1 - solution[:zl][(f_idx, t_idx), t]
+                branch["ShutOff"] = (1 - solution[:zl][(f_idx, t_idx), t]) == 1 ? "De-energized" : "Energized"
             end
             if solution[:zl][(f_idx, t_idx), t] ≥ 0.5 
                 branch["Status"] = "Energized"
@@ -117,7 +110,7 @@ function scenarioProcessing(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
             # branch["ShutOff"] = solution[:zl][(f_idx, t_idx), t] ≈ 1 ? "Energized" : "De-energized"
         end
         for (id,gen) in nw["gen"]
-            gen["power_risk"] = risk[t][:gen][parse(Int,id)]
+            gen["power_risk"] = 0# risk[t][:gen][parse(Int,id)]
             g = parse(Int,id)
             if t > 1
                 gen["ShutOff"] = solution[:zg][g, t - 1] - solution[:zg][g, t]
@@ -132,7 +125,7 @@ function scenarioProcessing(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
             # gen["ShutOff"] = solution[:zg][g, t] ≈ 1 ? "Energized" : "De-energized"
         end
         for (id,bus) in nw["bus"]
-            bus["power_risk"] =  risk[t][:bus][parse(Int,id)]
+            bus["power_risk"] =  0 # risk[t][:bus][parse(Int,id)]
             b = parse(Int,id)
             if t > 1
                 bus["ShutOff"] = solution[:zb][b, t - 1] - solution[:zb][b, t]
@@ -152,15 +145,15 @@ function scenarioProcessing(; Ω_rv::Dict{Int64, RandomVariables} = Ω_rv,
             d = parse(Int,id)
             b = load["load_bus"]
             bus = mn_data["nw"][nwid]["bus"]["$b"]
-            bus["Load_Shed"] = round(1 - demandSatisfication[d, t], digits = 4)
-            load["Load_Shed"] = round(1 - demandSatisfication[d, t], digits = 4)
+            bus["Load_Shed"] = round(1 - demandSatisfication[d, t], digits = 4) * 100
+            load["Load_Shed"] = round(1 - demandSatisfication[d, t], digits = 4) * 100
         end
     end
 
-    # risk_max = max([maximum([maximum(values(risk[t][type])) for t in periods]) for type in [:line,:bus,:gen]])
+    # risk_max = maximum([maximum([maximum(values(risk[t][type])) for t in periods]) for type in [:line]])
     risk_max = Dict()
     for type in [:line,:bus,:gen]
-        risk_max[type] = maximum([maximum(values(risk[t][type])) for t in periods])
+        risk_max[type] = maximum([maximum(values(risk[t][:line])) for t in periods])
     end
     return (risk_max = risk_max, mn_data = mn_data)
 end 
@@ -191,8 +184,8 @@ function power_risk_mn_plot(; mn_data::Dict{String, Any} = mn_data, risk_max::Di
     end
 
 
-    p=powerplot(mn_data,
-                width=250,height=250,
+    p=powerplot(mn_data, # mn_data["nw"]["13"]
+                width=200,height=200,
                 show_flow=false,
                 fixed=true, components=["bus","branch"],
                 branch_data="power_risk", branch_color=cs, branch_data_type="quantitative",
@@ -207,15 +200,20 @@ function power_risk_mn_plot(; mn_data::Dict{String, Any} = mn_data, risk_max::Di
                 node_size=12.5, branch_size=2, connector_size=0.5
                 )
     
-    p.layer[1]["encoding"]["color"]["scale"]["domainMax"]=risk_max[:line]
-    p.layer[3]["encoding"]["color"]["scale"]["domainMax"]=risk_max[:bus]
-    p.layer[4]["encoding"]["color"]["scale"]["domainMax"]=risk_max[:gen]
+    p.layer[1]["encoding"]["color"]["scale"]["domainMax"]=maximum([risk_max[:line], risk_max[:gen], risk_max[:bus]])
+    p.layer[3]["encoding"]["color"]["scale"]["domainMax"]=maximum([risk_max[:line], risk_max[:gen], risk_max[:bus]])
+    p.layer[4]["encoding"]["color"]["scale"]["domainMax"]=maximum([risk_max[:line], risk_max[:gen], risk_max[:bus]])
     p.layer[1]["encoding"]["color"]["scale"]["domainMin"]=0
     p.layer[3]["encoding"]["color"]["scale"]["domainMin"]=0
     p.layer[4]["encoding"]["color"]["scale"]["domainMin"]=0
     p.layer[1]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Line Risk")
     p.layer[3]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Bus Risk")
     p.layer[4]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Gen Risk")
+
+    p.layer[1]["encoding"]["color"]["legend"]=Dict("gradientLength"=>150,"title"=>"Risk Value")
+    p.layer[2]["encoding"]["color"]["legend"]=false # connector
+    p.layer[3]["encoding"]["color"]["legend"]=false # bus
+    p.layer[4]["encoding"]["color"]["legend"]=false # gen
     return p
 end
 
@@ -245,8 +243,8 @@ function power_shutoff_mn_plot(; mn_data::Dict{String, Any} = mn_data, AllCompon
     end
 
     if AllComponents
-        p=powerplot(mn_data,
-                width=250,height=250,
+        p=powerplot( mn_data, # mn_data["nw"]["12"],
+                width=200,height=200,
                 fixed=true, components=["bus","branch"],
                 branch_data= "Status", branch_color=[:lightgrey, :green], branch_data_type="nominal", 
                 gen_data= "Status", gen_color=[:lightgrey, "#0047AB"], gen_data_type="nominal", 
@@ -256,24 +254,31 @@ function power_shutoff_mn_plot(; mn_data::Dict{String, Any} = mn_data, AllCompon
                 # bus_size = 25, gen_size = 20, branch_size = 3, connector_size = 1
                 node_size=12.5, branch_size=2, connector_size=0.5
                 )
+        p.layer[3]["encoding"]["color"]["scale"]["domainMax"]=100
+        p.layer[3]["encoding"]["color"]["scale"]["domainMin"]=0
 
-        p.layer[3]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Load Shed")
+        p.layer[1]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Branch Shut Off")
+        p.layer[4]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Gen Shut Off")
+        p.layer[3]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Pct. Load-shed")
+        p.layer[2]["encoding"]["color"]["legend"]=false # connector
+
     else
         p=powerplot(mn_data,
-                width=250,height=250,
+                width=200,height=200,
                 show_flow=false,
                 fixed=true, components=["bus","branch", "load"],
-                branch_data="ShutOff", branch_color=[:green, :lightgrey], branch_data_type="nominal",
+                branch_data="ShutOff", branch_color=[:lightgrey, :green], branch_data_type="nominal",
                 gen_data= :gen_type, gen_data_type = "nominal", gen_color = colorscheme2array(ColorSchemes.colorschemes[:seaborn_deep]), # tableau_green_blue_white
-                bus_data= "load_type", bus_data_type = "nominal", bus_color = [:green, :Red, :grey, :orange],
+                bus_data= "load_type", bus_data_type = "nominal", bus_color = [:Red, :grey, :orange, :green],
                 connector_color="#d5d5d5",
                 # bus_size = 25, gen_size = 20, branch_size = 3, connector_size = 1
                 node_size=12.5, branch_size=2, connector_size=0.5
                 )
-        p.layer[1]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Branch ShutOff")
-        p.layer[4]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Gen Type")
-        p.layer[3]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Load Type")
-        
+
+        p.layer[1]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Branch Shut Off")
+        p.layer[4]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Gen Priority")
+        p.layer[3]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Load Priority")
+        p.layer[2]["encoding"]["color"]["legend"]=false # connector
     end
     # p.layer[1]["encoding"]["color"]["scale"]["domainMax"]=risk_max
     # p.layer[5]["encoding"]["color"]["scale"]["domainMax"]=risk_max
@@ -297,6 +302,7 @@ p1 = power_risk_mn_plot(; mn_data = mn_data)
 p2 = power_shutoff_mn_plot(; mn_data = mn_data, AllComponents = true)
 p3 = power_shutoff_mn_plot(; mn_data = mn_data, AllComponents = false)
 
+# p |> save("/Users/aaron/Downloads/nominal_plan_22.pdf")
 
 # p1 = power_risk_mn_plot(; mn_data = mn_data1)
 # p2 = power_shutoff_mn_plot(; mn_data = mn_data1, AllComponents = true)
@@ -306,10 +312,74 @@ p3 = power_shutoff_mn_plot(; mn_data = mn_data, AllComponents = false)
 # p22 = power_shutoff_mn_plot(; mn_data = mn_data2, AllComponents = true)
 # p32 = power_shutoff_mn_plot(; mn_data = mn_data2, AllComponents = false)
 
+# -----------
+# A = load("src/NumericalResults/computationalPerformance/A.jld2")["A"]
+# B = load("src/NumericalResults/computationalPerformance/B.jld2")["B"]
+# Ω_rv = load("src/NumericalResults/computationalPerformance/Ω_rv.jld2")["Ω_rv"] 
+
+# solution = A.first_state_variable;
+# demandSatisfication = A.x;
+
+# solution = B.state_variable;
+# demandSatisfication = B.x_value;
+# cs=reverse(colorscheme2array(ColorSchemes.colorschemes[:RdYlGn_10]))
+
+# net_layout = layout_network(mn_data["nw"]["1"], edge_types=["branch"], node_types=["bus","gen","load"])
+# # put the coordinate of net_layout into data_mn
+# for (nwid,nw) in mn_data["nw"]
+#     for comptype in ["bus","gen","load"]
+#         for (compid,comp) in nw[comptype]
+#             comp["xcoord_1"] = net_layout[comptype][compid]["xcoord_1"]
+#             comp["ycoord_1"] = net_layout[comptype][compid]["ycoord_1"]
+#         end
+#     end
+#     for comptype in ["branch"]
+#         for (compid,comp) in nw[comptype]
+#             if haskey(net_layout[comptype][compid], "xcoord_1") # don't deal with parallel lines
+#                 comp["xcoord_1"] = net_layout[comptype][compid]["xcoord_1"]
+#                 comp["ycoord_1"] = net_layout[comptype][compid]["ycoord_1"]
+#                 comp["xcoord_2"] = net_layout[comptype][compid]["xcoord_2"]
+#                 comp["ycoord_2"] = net_layout[comptype][compid]["ycoord_2"]
+#             end
+#         end
+#     end
+# end
 
 
+# for t in 1:24
+#     p=powerplot( mn_data["nw"]["$t"], # mn_data["nw"]["12"],
+#     width=200,height=200,
+#     fixed=true, components=["bus","branch"],
+#     branch_data= "Status", branch_color=[:lightgrey, :green], branch_data_type="nominal", 
+#     gen_data= "Status", gen_color=[:lightgrey, "#0047AB"], gen_data_type="nominal", 
+#     # bus_data= "ShutOff", bus_color=[:lightgreen, :lightgrey], bus_data_type="nominal",
+#     bus_data= "Load_Shed", bus_color=[:lightgreen, "#DB492A"], bus_data_type="quantitative",
+#     connector_color="#d5d5d5",
+#     # bus_size = 25, gen_size = 20, branch_size = 3, connector_size = 1
+#     node_size=12.5, branch_size=2, connector_size=0.5
+#     )
+#     p.layer[3]["encoding"]["color"]["scale"]["domainMax"]=100
+#     p.layer[3]["encoding"]["color"]["scale"]["domainMin"]=0
 
+#     p.layer[1]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Branch Shut Off")
+#     p.layer[4]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Gen Shut Off")
+#     p.layer[3]["encoding"]["color"]["legend"]=Dict("gradientLength"=>100,"title"=>"Pct. Load-shed")
+#     p.layer[2]["encoding"]["color"]["legend"]=false # connector
 
+#     p |> save("/Users/aaron/Desktop/SMIP/nominal_plan_$t.pdf")
+# end
+
+# using Images
+# using ImageIO
+# using FileIO
+
+# # 读取图像文件并将其转换为图像数组
+# image_files = readdir("/Users/aaron/Desktop/a2", join=true)
+# images = [load(file) for file in image_files]
+
+# # 将图像数组转换为GIF动画
+# save("/Users/aaron/Desktop/SMIP.gif", cat(images..., dims=3), fps=2)
+# -----------
 
 # indexSets = load("testData_RTS_Sparse/indexSets.jld2")["indexSets"]
 # paramOPF = load("testData_RTS_Sparse/paramOPF.jld2")["paramOPF"]
@@ -327,4 +397,3 @@ p3 = power_shutoff_mn_plot(; mn_data = mn_data, AllComponents = false)
 
 
 # save("testData_RTS_Sparse/modelInformationAfterShutOff.jld2", "modelInformationAfterShutOff", modelInformationAfterShutOff)
-
