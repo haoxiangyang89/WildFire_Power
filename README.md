@@ -13,7 +13,7 @@ The required data for the problem is as follows:
 - $\texttt{paramDemand}$: the necessary parameters for the load demand;
 - $\Omega\_\texttt{rv}$ and $\texttt{prob}$: the set of scenarios and the probability of each scenario $\omega \in \Omega\_\texttt{rv}$.
 
-You can generate data from the file in $\texttt{data}/\texttt{testData\_RTS}$:
+You can generate data from the file in $\texttt{data}$:
 
 ```julia
 .../WildFire_Power/data/testData_RTS/generateData_RTS_GMLC.jl 
