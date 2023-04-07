@@ -15,8 +15,7 @@ function forward_stage1_model!(indexSets::IndexSets,
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     Ω_rv::Dict{Int64, RandomVariables},
-                                    prob::Dict{Int64, Float64},
-                                    cut_collection::Dict{Int64, CutCoefficient};  ## the index is ω
+                                    prob::Dict{Int64, Float64};## the index is ω
                                     θ_bound::Real = 0.0, outputFlag::Int64 = 0, timelimit::Real = 120)
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω) 
@@ -125,7 +124,8 @@ function forward_stage2_model!(indexSets::IndexSets,
                                     paramDemand::ParamDemand, 
                                     paramOPF::ParamOPF, 
                                     randomVariables::RandomVariables;     
-                                    outputFlag::Int64 = 0
+                                    outputFlag::Int64 = 0, 
+                                    mipGap::Float64 = 1e-3
                                     )
 
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
@@ -134,7 +134,9 @@ function forward_stage2_model!(indexSets::IndexSets,
 
     Q = Model( optimizer_with_attributes(()->Gurobi.Optimizer(GRB_ENV), 
                 "OutputFlag" => outputFlag, 
-                "Threads" => 0) 
+                "Threads" => 0, 
+                "MIPGap" => mipGap, 
+                "TimeLimit" => 8) 
                 )
 
     @variable(Q, θ_angle[B, 1:T])      ## phase angle of the bus i
@@ -316,13 +318,12 @@ end
 
 
 ## just the second stage model, have no any modification
-function forward_stage2_optimize!(indexSets::IndexSets, 
-                                    paramDemand::ParamDemand, 
-                                    paramOPF::ParamOPF, 
-                                    ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
-                                    randomVariables::RandomVariables                          ## realization of the random time
-                                    )
-
+function forward_stage2_optimize!(ẑ::Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}},
+                                    randomVariables::RandomVariables; 
+                                        indexSets::IndexSets = indexSets, 
+                                            paramDemand::ParamDemand = paramDemand, 
+                                                paramOPF::ParamOPF = paramOPF
+                                )
     (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω)
     (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L) 
 
@@ -409,15 +410,17 @@ function forward_stage2_optimize!(indexSets::IndexSets,
 
     ## objective function
     @objective(Q, Min,  
-            sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
-            sum(paramDemand.cb[i] * νb[i] for i in B) + 
-            sum(paramDemand.cg[g] * νg[g] for g in G) + 
-            sum(paramDemand.cl[l] * νl[l] for l in L)
-            )
+                        sum( sum(paramDemand.w[d] * (1 - x[d, t]) for d in D ) for t in randomVariables.τ:T) +
+                              sum(paramDemand.cb[i] * νb[i] for i in B) + 
+                                  sum(paramDemand.cg[g] * νg[g] for g in G) + 
+                                      sum(paramDemand.cl[l] * νl[l] for l in L)
+              )
     ####################################################### solve the model and display the result ###########################################################
     optimize!(Q)
-    state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(yg)), :zb => round.(JuMP.value.(yb)), :zl => round.(JuMP.value.(yl)))
+    
     state_value    = JuMP.objective_value(Q)
+    # state_variable = Dict{Symbol, JuMP.Containers.DenseAxisArray{Float64, 1}}(:zg => round.(JuMP.value.(yg)), :zb => round.(JuMP.value.(yb)), :zl => round.(JuMP.value.(yl)))
 
-    return [state_variable, state_value]  ## returen [Lt, y, θ, f]
+    # return [state_variable, state_value]  ## returen [Lt, y, θ, f]
+    return state_value
 end

@@ -5,64 +5,59 @@
 ## -----------------------------------  Generate the first-stage decision  ---------------------------------------- ##
 gurobiResultList = Dict{Any, Any}()
 
-indexSets = load("testData_RTS/indexSets.jld2")["indexSets"]
-paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
-paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
-Ω_rvList = load("testData_RTS/Ω_rvList.jld2")["Ω_rvList"]
+indexSets = load("data/testData_RTS/indexSets.jld2")["indexSets"]
+paramOPF = load("data/testData_RTS/paramOPF.jld2")["paramOPF"]
+paramDemand = load("data/testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rvList = load("data/testData_RTS/Ω_rvList.jld2")["Ω_rvList"]
+probList = load("data/testData_RTS/probList.jld2")["probList"]
 
-Ω = 50; 
-pList = [.5, .9, 0.95, 0.99];
-probList = Dict{Float64, Any}()
-for p in pList
-    prob = Dict{Int64, Float64}();
-    for ω in 1:Ω
-        prob[ω] = (1 - p)/Ω;
-    end
-    probList[p] = prob
-end
 
-for p in pList
+for Ω in [20, 50, 100, 200, 500] #[20, 50, 100, 200, 500]
   for i in 1:20 
-    @info "$p, $i"
-    Ω_rv = Ω_rvList[(Ω, i)]; indexSets.Ω = [1:Ω...];
+      @info "$Ω, $i"
+      Ω_rv = Ω_rvList[(Ω, i)]; indexSets.Ω = [1:Ω...];
 
-    # timelimit = Ω >= 100 ? 14400 : 6000
-    gurobiResultList[(p, i)] = gurobiOptimize!(indexSets, 
-                                        paramDemand, 
-                                        paramOPF, 
-                                        Ω_rv,
-                                        probList[p]; 
-                                        mipGap = 2e-2, timelimit = 1800); 
+      prob = Dict{Int64, Float64}();
+      for ω in indexSets.Ω 
+          prob[ω] = 1/Ω;
+      end
+
+
+      timelimit = Ω >= 200 ? 18000 : 7200;
+      gurobiResultList[(Ω, i)] = gurobiOptimize!(indexSets, 
+                                          paramDemand, 
+                                          paramOPF, 
+                                          Ω_rv,
+                                          prob; 
+                                          mipGap = 1e-2, timelimit = timelimit); 
   end
-  save("src/Experiments/WeightTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
+  save("src/NumericalResults/computationalPerformance/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 end
 
-save("src/Experiments/WeightTest/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
+save("src/NumericalResults/computationalPerformance/gurobiResultList.jld2", "gurobiResultList", gurobiResultList)
 
-# gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
+# gurobiResultList = load("src/NumericalResults/computationalPerformance/gurobiResultList.jld2")["gurobiResultList"]
 
 
 
 ## ------------------------------  Compute total costs by using different decisions  ----------------------------- ##
 ## scenario size = 200
-totalCost = Dict{Tuple{Int64, Float64}, Float64}()
-
-indexSets = load("testData_RTS/indexSets.jld2")["indexSets"]
-paramOPF = load("testData_RTS/paramOPF.jld2")["paramOPF"]
-paramDemand = load("testData_RTS/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("testData_RTS/Ω_rv5000.jld2")["Ω_rv"]
-indexSets.Ω = [1:5000...]
+totalCost = Dict{Tuple{Int64, Int64}, Float64}()
+gurobiResultList = load("src/NumericalResults/computationalPerformance/gurobiResultList.jld2")["gurobiResultList"]
+indexSets = load("data/testData_RTS/indexSets.jld2")["indexSets"]
+paramOPF = load("data/testData_RTS/paramOPF.jld2")["paramOPF"]
+paramDemand = load("data/testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("data/testData_RTS/Ω_rv5000.jld2")["Ω_rv"]
+indexSets.Ω = [1:length(keys(Ω_rv))...]
 prob = Dict{Int64, Float64}();
 for ω in 1:5000 
     prob[ω] = 1/5000;
 end
 
-gurobiResultList = load("src/Experiments/WeightTest/gurobiResultList.jld2")["gurobiResultList"]
+for k in 1:20
+  for scenarioSize in [20, 50, 100, 200, 500]
 
-for k in 1:20 
-  for probEmpty in [.5, .9, 0.95, 0.99]
-
-      state_variable = gurobiResultList[(probEmpty, k)].first_state_variable;
+      state_variable = gurobiResultList[(scenarioSize, k)].first_state_variable;
       ## -------------------------------- solve the first stage model -------------------------------- ##
       (D, G, L, B, T, Ω) = (indexSets.D, indexSets.G, indexSets.L, indexSets.B, indexSets.T, indexSets.Ω);
       (Dᵢ, Gᵢ, in_L, out_L) = (indexSets.Dᵢ, indexSets.Gᵢ, indexSets.in_L, indexSets.out_L);
@@ -122,12 +117,13 @@ for k in 1:20
       ## stage 2
       c = 0.0;
       for ω in indexSets.Ω
-        @info "$probEmpty, $k, $ω"
+        @info "$k, $scenarioSize, $ω"
         randomVariables = Ω_rv[ω];
         forward2Info = forward_stage2_model!(indexSets, 
                                               paramDemand,
                                               paramOPF,
-                                              randomVariables              
+                                              randomVariables;
+                                              mipGap = 3e-2              
                                               );
 
         ẑ = Dict(   :zg => state_variable[:zg][:, randomVariables.τ - 1], 
@@ -147,10 +143,12 @@ for k in 1:20
         c = c + prob[ω] * JuMP.objective_value(forward2Info.model);
       end
       u = state_value + c;
-      totalCost[(k, probEmpty)] = u;
+      totalCost[(k, scenarioSize)] = u;
+      save("src/NumericalResults/computationalPerformance/totalCost.jld2", "totalCost", totalCost)
   end
-  save("src/Experiments/WeightTest/totalCost.jld2", "totalCost", totalCost)
 end
-save("src/Experiments/WeightTest/totalCost.jld2", "totalCost", totalCost)
-totalCost = load("src/Experiments/WeightTest/totalCost.jld2")["totalCost"]
+save("src/NumericalResults/computationalPerformance/totalCost.jld2", "totalCost", totalCost)
+totalCost = load("src/NumericalResults/computationalPerformance/totalCost.jld2")["totalCost"]
+
+
 
