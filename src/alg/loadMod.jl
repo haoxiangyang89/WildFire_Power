@@ -26,11 +26,11 @@ include("src/alg/sddip.jl")
 # include("src/alg/runtests_RTS_GMLC.jl")
 
 ## RTS test
-indexSets = load("testData_RTS_Sparse/indexSets.jld2")["indexSets"]
-paramOPF = load("testData_RTS_Sparse/paramOPF.jld2")["paramOPF"]
-paramDemand = load("testData_RTS_Sparse/paramDemand.jld2")["paramDemand"]
-Ω_rv = load("testData_RTS_Sparse/Ω_rv.jld2")["Ω_rv"]
-prob = load("testData_RTS_Sparse/prob.jld2")["prob"]
+indexSets = load("data/testData_RTS/indexSets.jld2")["indexSets"]
+paramOPF = load("data/testData_RTS/paramOPF.jld2")["paramOPF"]
+paramDemand = load("data/testData_RTS/paramDemand.jld2")["paramDemand"]
+Ω_rv = load("data/testData_RTS/Ω_rv.jld2")["Ω_rv"]
+prob = load("data/testData_RTS/prob.jld2")["prob"]
 
 sddipResult = SDDiP_algorithm(; ϵ = 1e-4, max_iter = 100) 
 @save "testData_RTS/sampleSize2/enhancedRTS.jld2" sddipResult
